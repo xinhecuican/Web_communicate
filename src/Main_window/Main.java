@@ -1,0 +1,12 @@
+package Main_window;
+
+import javax.swing.*;
+
+public class Main
+{
+    public static final int LEFT_PANEL_WIDTH = 200;
+    public static void main(String[] args)
+    {
+        new Window("title");
+    }
+}
