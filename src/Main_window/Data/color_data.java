@@ -6,7 +6,7 @@ import java.awt.*;
  * @author: 李子麟
  * @date: 2021/3/15 20:57
  **/
-public class color_data
+public class color_data implements java.io.Serializable
 {
     private int begin_index;
     private int end_index;

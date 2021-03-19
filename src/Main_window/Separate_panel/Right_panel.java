@@ -1,29 +1,42 @@
 package Main_window.Separate_panel;
 
 import Main_window.Data.Message_data;
+import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
+import Main_window.Main;
+import Main_window.Server.Server;
+import Main_window.Server.User;
 import Main_window.Window;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 public class Right_panel extends JPanel
 {
+    JTextPane message_inner_panel;
     JTextArea message_area;
     private JScrollPane message_panel ;
     private JToolBar message_toolbar ;
     private JPanel enter_panel;
-    private JPanel message_inner_panel;
-
+    private JTextArea enter_area;
+    SimpleAttributeSet other_set_name;
+    SimpleAttributeSet other_set;
+    SimpleAttributeSet user_set;
+    SimpleAttributeSet user_set_name;
 
     public Right_panel()
     {
+        message_inner_panel = new JTextPane();
+        message_inner_panel.setEditable(false);
         message_panel = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         message_toolbar = new JToolBar();
         enter_panel = new JPanel();
@@ -37,17 +50,16 @@ public class Right_panel extends JPanel
         add(enter_panel);
 
         constraints.gridwidth = 0;
-        constraints.gridheight = 10;
         constraints.weightx = 1;
         constraints.weighty = 1;
+        constraints.gridheight= 10;
         constraints.fill = GridBagConstraints.BOTH;
         layout.setConstraints(message_panel, constraints);
-        constraints.gridheight = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weighty = 0;
+        constraints.gridheight = 1;
         layout.setConstraints(message_toolbar, constraints);
         constraints.gridheight = 4;
-
         layout.setConstraints(enter_panel, constraints);
         setLayout(layout);
 
@@ -64,26 +76,69 @@ public class Right_panel extends JPanel
         setVisible(true);
     }
 
+    public void clear()
+    {
+        message_inner_panel.setText("");
+    }
+
     public void add_piece_message(message_rightdata data)
     {
-        message_area.append(data.time + "\n" + data.message);
+
+        Document doc = message_inner_panel.getStyledDocument();
+        try
+        {
+
+            doc.insertString(doc.getLength(),
+                    data.is_user ? Main.main_user.get_name() : Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
+            doc.insertString(doc.getLength(), data.message+'\n', user_set);
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        //message_area.append(data.time + "\n" + data.message);
     }
 
     private void set_enter_panel()
     {
-        GridBagLayout layout = new GridBagLayout();
+        BorderLayout layout = new BorderLayout();
+        //GridBagLayout layout = new GridBagLayout();
         enter_panel.setLayout(layout);
-        TextArea textArea = new TextArea("", 10, 20, TextArea.SCROLLBARS_HORIZONTAL_ONLY);
+        enter_area = new JTextArea("", 10, 20);
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
         constraints.weightx = 1;
         constraints.weighty = 1;
-        enter_panel.add(textArea, constraints);
+        JScrollPane scrollPane = new JScrollPane(enter_area);
+        scrollPane.setMinimumSize(new Dimension(600, 200));
+        enter_panel.add(scrollPane, BorderLayout.CENTER);
     }
 
     private void set_message_panel()
     {
-        message_panel.setViewportView(message_area);
+        message_panel.setViewportView(message_inner_panel);
+        other_set = new SimpleAttributeSet();
+        user_set = new SimpleAttributeSet();
+        other_set_name = new SimpleAttributeSet();
+        user_set_name = new SimpleAttributeSet();
+        StyleConstants.setAlignment(other_set, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setLineSpacing(other_set, 1);
+        StyleConstants.setFontSize(other_set, 15);
+        StyleConstants.setFontFamily(other_set, "Arial Black");
+        StyleConstants.setAlignment(user_set, StyleConstants.ALIGN_RIGHT);
+        StyleConstants.setLineSpacing(user_set, 1);
+        StyleConstants.setFontSize(user_set, 15);
+        StyleConstants.setFontFamily(user_set, "Arial Black");
+        StyleConstants.setLeftIndent(user_set, (float)message_panel.getWidth() / 2);
+        StyleConstants.setBold(other_set_name, true);
+        StyleConstants.setFontSize(other_set_name, 20);
+        StyleConstants.setLineSpacing(other_set_name, (float) 1.5);
+        StyleConstants.setAlignment(other_set_name, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setBold(user_set_name, true);
+        StyleConstants.setFontSize(user_set_name, 20);
+        StyleConstants.setLineSpacing(user_set_name, (float) 1.5);
+        StyleConstants.setAlignment(user_set_name, StyleConstants.ALIGN_LEFT);
+
     }
 
     private void set_message_toolbar()
@@ -122,6 +177,33 @@ public class Right_panel extends JPanel
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
+                message_rightdata temp_data = new message_rightdata(Window.get_time(), enter_area.getText(), true);
+                Send_data send_data = new Send_data(Main.main_user.get_name(), temp_data,
+                        User.send_host, User.send_port);
+                try
+                {
+                    send_data.my_host = InetAddress.getLocalHost().getHostAddress();
+                }
+                catch (UnknownHostException e)
+                {
+                    e.printStackTrace();
+                }
+                send_data.my_port = Server.receive_port;
+                if (Main.need_reset || Left_panel.select_button == null)
+                {
+                    Main.need_reset = false;
+                    Main.main_user.send_message(send_data);
+                }
+                else
+                {
+                    send_data.send_host = Left_panel.select_button.recent_ip;
+                    send_data.send_port = Left_panel.select_button.recent_port;
+                    Main.main_user.send_message(send_data);
+                    add_piece_message(temp_data);
+                    Left_panel.select_button.add_message(temp_data);
+                }
+                enter_area.setText("");
+
 
             }
         });

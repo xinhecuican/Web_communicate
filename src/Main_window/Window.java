@@ -1,12 +1,15 @@
 package Main_window;
 
 import Main_window.Data.Message_data;
+import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
 import Main_window.Separate_panel.Left_panel;
 import Main_window.Separate_panel.Right_panel;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -15,7 +18,6 @@ public class Window extends JFrame
     private JPanel root_panel;
     private Right_panel right_panel;
     private Left_panel left_panel;
-    private SimpleDateFormat formatter= new SimpleDateFormat("MM-dd HH:mm:ss");
     public static Window current;
 
 
@@ -24,8 +26,8 @@ public class Window extends JFrame
         super(title, null);
         try
         {
+            set_menubar();
             set_panel();
-            set_tab();
 
             setMinimumSize(new Dimension(800, 600));
             setPreferredSize(new Dimension(800, 600));
@@ -33,10 +35,12 @@ public class Window extends JFrame
             pack();
             setVisible(true);
             current = this;
+            //test();
             Dimension dim=getToolkit().getScreenSize();
             int w=dim.width/2;
             int h=dim.height/2;
             setLocation(w - 500, h-300);
+
         }
         catch(Exception e)
         {
@@ -70,19 +74,20 @@ public class Window extends JFrame
         //tab_panel.setUI(new Tabpanel_UI("#ffffff", "#000000"));
 
     }
-    
-    private static String[] tab_name = new String[]{"a", "b", "c"};
-    
-    private void set_tab()
-    {
-        for (int i=0; i<20; i++)
-        {
-            left_panel.add_card(new Message_data(String.valueOf(i), new message_rightdata(get_time(), "hello world")));
-        }
-    }
 
-    private String get_time()
+    /*public void test()
     {
+        for(int i=0; i<15; i++)
+        {
+            left_panel.add_card(String.valueOf(i), new Message_data(new message_rightdata(get_time(), "hello world", false)));
+        }
+        //Main.main_user.send_message(new Send_data("user1", new message_rightdata(get_time(), "hello", false)));
+    }*/
+
+
+    public static String get_time()
+    {
+        SimpleDateFormat formatter= new SimpleDateFormat("MM-dd HH:mm:ss");
         return formatter.format(new Date(System.currentTimeMillis()));
     }
 
@@ -94,6 +99,30 @@ public class Window extends JFrame
     public Left_panel getLeft_panel()
     {
         return current.left_panel;
+    }
+
+    private void set_menubar()
+    {
+        JMenuBar menuBar = new JMenuBar();
+        menuBar.setVisible(true);
+
+
+        JMenu menu_setting = new JMenu("设置");
+        JMenuItem socket_setting = new JMenuItem("端口设置");
+        socket_setting.setActionCommand("socket_setting");
+        menu_setting.add(socket_setting);
+        socket_setting.addActionListener(actionEvent ->
+        {
+            if(actionEvent.getActionCommand().equals("socket_setting"))
+            {
+                new Pop_window(getX(), getY());
+            }
+        });
+        menu_setting.add(socket_setting);
+
+        menuBar.add(menu_setting);
+
+        this.setJMenuBar(menuBar);
     }
 
 

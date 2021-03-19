@@ -1,33 +1,38 @@
 package Main_window.Separate_panel;
 
 import Main_window.Data.Message_data;
-import Main_window.Main;
-import Main_window.Separate_panel.Left_button;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
+import java.util.ArrayList;
 
 /**
  * @author: 李子麟
  * @date: 2021/3/15 20:41
  **/
-public class Left_panel extends JScrollPane
+public class Left_panel extends JPanel
 {
+    private JScrollPane scrollPane;
     private JPanel scroll_inner_panel;
+    private ArrayList<Friend> data;
+    public static Friend select_button;
     public Left_panel()
     {
 
         super();
+        setLayout(new BorderLayout());
+        scrollPane = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        data = new ArrayList<Friend>();
         setAutoscrolls(true);
-        getVerticalScrollBar().setUnitIncrement(20);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scroll_inner_panel = new JPanel();
         scroll_inner_panel.setLayout(new BoxLayout(scroll_inner_panel, BoxLayout.Y_AXIS));
-        //scroll_inner_panel.setPreferredSize(new Dimension(Main.LEFT_PANEL_WIDTH, 8000));
-        setViewportView(scroll_inner_panel);
-        /*addComponentListener(new ComponentAdapter()
+        //scroll_inner_panel.setPreferredSize(new Dimension(Main.LEFT_PANEL_WIDTH, 400));
+        scrollPane.setViewportView(scroll_inner_panel);
+        add(scrollPane, BorderLayout.CENTER);
+        Search_panel search_panel = new Search_panel();
+        add(search_panel, BorderLayout.NORTH);
+        /*scroll_inner_panel.addComponentListener(new ComponentAdapter()
         {
             @Override
             public void componentResized(ComponentEvent e)
@@ -41,18 +46,23 @@ public class Left_panel extends JScrollPane
 
 
 
-    public void add_card(Message_data data)
+    public void add_card(String host, int port, String name, Message_data data)
     {
-        Left_button button;
-        if(!data.is_empty())
-        {
-            button = new Left_button(data);
-        }
-        else
-        {
-            button = new Left_button(data.name, data);
-        }
+        Friend button = new Friend(host, port, name, data);
+        button.setSize(200, 40);
+        this.data.add(button);
+
         scroll_inner_panel.add(button);
+
+        scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+        select_button = button;
+
+        button.set_message();
         //button.setBounds(new Rectangle(10, 10));
+    }
+
+    public ArrayList<Friend> getData()
+    {
+        return data;
     }
 }
