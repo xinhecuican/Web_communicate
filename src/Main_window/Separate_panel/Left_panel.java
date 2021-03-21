@@ -1,10 +1,14 @@
 package Main_window.Separate_panel;
 
 import Main_window.Data.Message_data;
+import Main_window.Listener.Write_message_listener;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
+
+import static Main_window.Separate_panel.Left_button.set_message;
 
 /**
  * @author: 李子麟
@@ -14,15 +18,15 @@ public class Left_panel extends JPanel
 {
     private JScrollPane scrollPane;
     private JPanel scroll_inner_panel;
-    private ArrayList<Friend> data;
-    public static Friend select_button;
+    private ArrayList<Left_button> data;
+    public static Left_button select_button;
     public Left_panel()
     {
 
         super();
         setLayout(new BorderLayout());
         scrollPane = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        data = new ArrayList<Friend>();
+        data = new ArrayList<Left_button>();
         setAutoscrolls(true);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scroll_inner_panel = new JPanel();
@@ -30,8 +34,11 @@ public class Left_panel extends JPanel
         //scroll_inner_panel.setPreferredSize(new Dimension(Main.LEFT_PANEL_WIDTH, 400));
         scrollPane.setViewportView(scroll_inner_panel);
         add(scrollPane, BorderLayout.CENTER);
-        Search_panel search_panel = new Search_panel();
-        add(search_panel, BorderLayout.NORTH);
+
+        /*JButton search_button = new JButton();
+        search_button.setToolTipText("搜索");
+        JTextField textField = new JTextField();*/
+
         /*scroll_inner_panel.addComponentListener(new ComponentAdapter()
         {
             @Override
@@ -44,24 +51,36 @@ public class Left_panel extends JPanel
         });*/
     }
 
-
-
-    public void add_card(String host, int port, String name, Message_data data)
+    public void add_search_panel(JTextField textField, JButton button)
     {
-        Friend button = new Friend(host, port, name, data);
-        button.setSize(200, 40);
-        this.data.add(button);
+        Search_panel search_panel = new Search_panel();
+        search_panel.set_text_and_button(textField, button);
+        add(search_panel, BorderLayout.NORTH);
+    }
 
+
+
+    public void add_card(boolean is_main_panel, String name, Message_data data, ActionListener listener)
+    {
+        Left_button button = new Left_button(name, data, listener);
+        //button.setSize(200, 40);
+        if(is_main_panel)
+            this.data.add(button);
         scroll_inner_panel.add(button);
 
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         select_button = button;
 
-        button.set_message();
+        set_message(button);
         //button.setBounds(new Rectangle(10, 10));
     }
 
-    public ArrayList<Friend> getData()
+    public void add_card(Friend_confirm_card card)
+    {
+
+    }
+
+    public ArrayList<Left_button> getData()
     {
         return data;
     }

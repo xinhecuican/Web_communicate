@@ -1,15 +1,11 @@
 package Main_window;
 
-import Main_window.Data.Message_data;
-import Main_window.Data.Send_data;
-import Main_window.Data.message_rightdata;
+import Main_window.Pop_window.Pop_window;
 import Main_window.Separate_panel.Left_panel;
 import Main_window.Separate_panel.Right_panel;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -110,15 +106,19 @@ public class Window extends JFrame
         JMenu menu_setting = new JMenu("设置");
         JMenuItem socket_setting = new JMenuItem("端口设置");
         socket_setting.setActionCommand("socket_setting");
-        menu_setting.add(socket_setting);
         socket_setting.addActionListener(actionEvent ->
         {
             if(actionEvent.getActionCommand().equals("socket_setting"))
             {
-                new Pop_window(getX(), getY());
+                Pop_window pop_window = new Pop_window(this);
             }
         });
         menu_setting.add(socket_setting);
+
+        JMenu menu_friend = new JMenu("好友");
+        JMenuItem friend_list = new JMenuItem("好友列表");
+        JMenuItem button_add_friend = new JMenuItem("添加好友");
+
 
         menuBar.add(menu_setting);
 

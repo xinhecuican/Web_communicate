@@ -1,21 +1,17 @@
 package Main_window.Separate_panel;
 
-import Main_window.Data.Message_data;
 import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
 import Main_window.Main;
-import Main_window.Server.Server;
-import Main_window.Server.User;
+import Main_window.User_Server.User_server;
+import Main_window.User_Server.User;
 import Main_window.Window;
 
 import javax.swing.*;
-import javax.swing.border.Border;
 import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -87,10 +83,18 @@ public class Right_panel extends JPanel
         Document doc = message_inner_panel.getStyledDocument();
         try
         {
+            if(data.is_user)
+            {
+                doc.insertString(doc.getLength(), Main.main_user.get_name() + "   " + data.time+"\n", user_set_name);
+                doc.insertString(doc.getLength(), data.message+'\n', user_set);
+            }
+            else
+            {
+                doc.insertString(doc.getLength(), Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
+                doc.insertString(doc.getLength(), data.message+'\n', other_set);
+            }
 
-            doc.insertString(doc.getLength(),
-                    data.is_user ? Main.main_user.get_name() : Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
-            doc.insertString(doc.getLength(), data.message+'\n', user_set);
+
         }
         catch (Exception e)
         {
@@ -188,7 +192,7 @@ public class Right_panel extends JPanel
                 {
                     e.printStackTrace();
                 }
-                send_data.my_port = Server.receive_port;
+                send_data.my_port = User_server.receive_port;
                 if (Main.need_reset || Left_panel.select_button == null)
                 {
                     Main.need_reset = false;

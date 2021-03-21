@@ -14,31 +14,27 @@ import java.util.ArrayList;
  * @author: 李子麟
  * @date: 2021/3/15 21:09
  **/
-public class Friend extends JButton
+public class Left_button extends JButton
 {
     private String name;
     private String nearest_message;
     private String time;
     private JPanel root_panel;
     public Message_data data;
-    public int recent_port;
-    public String recent_ip;
-    public Friend()
+    public int id;
+    public Left_button()
     {
         name = "";
-        set_style();
         data = new Message_data();
         setContentAreaFilled(false);
         setLayout(new GridBagLayout());
     }
 
-    public Friend(String host, int port, String name, Message_data data)
+    public Left_button(String name, Message_data data, ActionListener listener)
     {
         this.name = name;
         nearest_message = "";
         time = "";
-        recent_ip = host;
-        recent_port = port;
         if(!data.is_empty())
         {
             nearest_message = data.recently_message().message;
@@ -47,10 +43,19 @@ public class Friend extends JButton
         this.data = data;
         setContentAreaFilled(false);
         setLayout(new GridBagLayout());
-        set_style();
+        set_style(listener);
     }
 
-    public Friend(String name, String nearest_message, String time)
+    public Left_button(String name, String id, ActionListener listener)
+    {
+        this.name = name;
+        this.nearest_message = id;
+        setContentAreaFilled(false);
+        setLayout(new GridBagLayout());
+        set_style(listener);
+    }
+
+    public Left_button(String name, String nearest_message, String time, ActionListener listener)
     {
         this.name = name;
         this.nearest_message = nearest_message;
@@ -58,10 +63,10 @@ public class Friend extends JButton
         data = new Message_data(new message_rightdata(time, nearest_message, false));
         setContentAreaFilled(false);
         setLayout(new GridBagLayout());
-        set_style();
+        set_style(listener);
     }
 
-    private void set_style()
+    private void set_style(ActionListener listener)
     {
         setMaximumSize(new Dimension(220, 60));
         root_panel = new JPanel();
@@ -85,29 +90,19 @@ public class Friend extends JButton
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         root_panel.add(new JLabel(nearest_message), constraints);
-        addActionListener(new Write_message_listener());
+        addActionListener(listener);
     }
 
-    private class Write_message_listener implements ActionListener
+    public static void set_message(Left_button select_button)
     {
-        @Override
-        public void actionPerformed(ActionEvent actionEvent)
-        {
-            Left_panel.select_button = (Friend)actionEvent.getSource();
-            set_message();
-
-        }
-    }
-
-    public void set_message()
-    {
-        ArrayList<message_rightdata> rightdataList = (ArrayList<message_rightdata>) data.get_datalist();
+        ArrayList<message_rightdata> rightdataList = (ArrayList<message_rightdata>) select_button.data.get_datalist();
         Window.current.getRight_panel().clear();
         for(int i=0; i<rightdataList.size(); i++)
         {
             Window.current.getRight_panel().add_piece_message(rightdataList.get(i));
         }
     }
+
 
     public String get_name()
     {
