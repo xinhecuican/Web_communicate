@@ -11,6 +11,7 @@ public class Login_back_data implements Serializable
 {
     public int id;
     public boolean is_error;
+    public String name;
     public List<Send_data> storage_data;
     public Login_back_data(boolean is_error, List<Send_data> storage_data)
     {

@@ -13,10 +13,10 @@ public class Main
     public static boolean is_login;
     public static void main(String[] args)
     {
-        need_reset = false;
         main_userserver = new User_server();
-        main_user = new User("name");
         main_userserver.start();
-        new Window("title");
+        need_reset = false;
+        main_user = new User();
+        login_window = new Login_window("网络聊天室");
     }
 }

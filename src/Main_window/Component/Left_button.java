@@ -1,12 +1,12 @@
-package Main_window.Separate_panel;
+package Main_window.Component;
 
 import Main_window.Data.Message_data;
 import Main_window.Data.message_rightdata;
+import Main_window.User_Server.User_friend;
 import Main_window.Window;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 
@@ -55,15 +55,13 @@ public class Left_button extends JButton
         set_style(listener);
     }
 
-    public Left_button(String name, String nearest_message, String time, ActionListener listener)
+    public Left_button(User_friend friend)
     {
-        this.name = name;
-        this.nearest_message = nearest_message;
-        this.time = time;
-        data = new Message_data(new message_rightdata(time, nearest_message, false));
-        setContentAreaFilled(false);
-        setLayout(new GridBagLayout());
-        set_style(listener);
+        id = friend.getId();
+        name = friend.name;
+        data = friend.communicate_data;
+        nearest_message = !data.is_empty() ? data.recently_message().message : "";
+        time = !data.is_empty() ? data.recently_message().time : "";
     }
 
     private void set_style(ActionListener listener)

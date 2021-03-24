@@ -1,5 +1,6 @@
 package Main_window;
 
+import Main_window.Pop_window.Register_window;
 import Main_window.User_Server.User_server;
 
 import javax.swing.*;
@@ -19,9 +20,12 @@ public class Login_window extends JFrame
     private GridBagLayout root_layout;
     private JTextField message;
     private JTextField user_text;
-    private JTextField password_text;
-    public Login_window()
+    private JPasswordField password_text;
+    public static Login_window current;
+    public Login_window(String name)
     {
+        super(name);
+        current = this;
         root_panel = new JPanel();
         root_layout = new GridBagLayout();
         root_panel.setLayout(root_layout);
@@ -33,68 +37,35 @@ public class Login_window extends JFrame
         message.setEditable(false);
         message.setOpaque(false);
 
-        user_text = new JTextField();
-        password_text = new JTextField();
+        user_text = new JTextField(15);
+        password_text = new JPasswordField(15);
 
         JButton button_confirm = new JButton("登录");
         JButton button_register = new JButton("注册");
 
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.fill = GridBagConstraints.NONE;
-        constraints.ipadx = 30;
-        constraints.anchor = GridBagConstraints.WEST;
-        root_layout.setConstraints(label_user, constraints);
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        constraints.weightx = 1;
-        constraints.ipadx = 0;
-        constraints.gridwidth = 0;
-        constraints.anchor = GridBagConstraints.CENTER;
-        root_layout.setConstraints(user_text, constraints);
-        constraints.gridwidth = 1;
-        constraints.fill = GridBagConstraints.NONE;
-        constraints.weightx = 0;
-        constraints.ipadx = 30;
-        constraints.anchor = GridBagConstraints.WEST;
-        root_layout.setConstraints(label_password, constraints);
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        constraints.weightx = 1;
-        constraints.ipadx = 0;
-        constraints.gridwidth = 0;
-        constraints.anchor = GridBagConstraints.CENTER;
-        root_layout.setConstraints(password_text, constraints);
-        constraints.fill = GridBagConstraints.NONE;
-        constraints.ipadx = 50;
-        constraints.weightx = 0;
-        root_layout.setConstraints(button_register, constraints);
-        constraints.weightx = 1;
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        constraints.gridwidth = 0;
-        root_layout.setConstraints(button_confirm, constraints);
-        constraints.ipadx = 0;
-        root_layout.setConstraints(message, constraints);
+        JPanel panel1 = new JPanel();
+        panel1.add(label_user);
+        panel1.add(user_text);
+        JPanel panel2 = new JPanel();
+        panel2.add(label_password);
+        panel2.add(password_text);
+        JPanel panel3 = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        panel3.add(button_register);
+        panel3.add(button_confirm);
 
-        root_panel.add(label_password);
-        root_panel.add(label_user);
-        root_panel.add(password_text);
-        root_panel.add(user_text);
-        root_panel.add(button_confirm);
-        root_panel.add(button_register);
-        root_panel.add(message);
-
+        Box vBox = Box.createVerticalBox();
+        vBox.add(panel1);
+        vBox.add(panel2);
+        vBox.add(panel3);
+        vBox.add(message);
+        setContentPane(vBox);
         button_confirm.addActionListener(new ActionListener()
         {
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                try
-                {
-                    Main.main_user.send_login_message(InetAddress.getLocalHost().getHostAddress(),
-                            User_server.receive_port, Integer.parseInt(user_text.getText()), false, password_text.getText());
-                }
-                catch (UnknownHostException e)
-                {
-                    e.printStackTrace();
-                }
+                Main.main_user.send_login_message("", Integer.parseInt(user_text.getText()),
+                        false, String.valueOf(password_text.getPassword()));
             }
         });
 
@@ -103,12 +74,13 @@ public class Login_window extends JFrame
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-
+                new Register_window(current);
             }
         });
-
         pack();
         setVisible(true);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
     public void set_text(String text)

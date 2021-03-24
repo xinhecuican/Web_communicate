@@ -1,4 +1,4 @@
-package Main_window.Separate_panel;
+package Main_window.Component;
 
 import Main_window.Data.message_rightdata;
 

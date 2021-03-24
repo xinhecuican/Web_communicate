@@ -1,14 +1,16 @@
 package Main_window.Separate_panel;
 
+import Main_window.Component.Friend_confirm_card;
+import Main_window.Component.Left_button;
 import Main_window.Data.Message_data;
-import Main_window.Listener.Write_message_listener;
+import Main_window.User_Server.User_friend;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 
-import static Main_window.Separate_panel.Left_button.set_message;
+import static Main_window.Component.Left_button.set_message;
 
 /**
  * @author: 李子麟
@@ -58,26 +60,37 @@ public class Left_panel extends JPanel
         add(search_panel, BorderLayout.NORTH);
     }
 
+    public void add_card(User_friend friend)
+    {
+        Left_button button = new Left_button(friend);
+        this.data.add(button);
+        select_button_change(button);
+        set_message(button);
+        scroll_inner_panel.add(button);
+        scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+    }
 
 
-    public void add_card(boolean is_main_panel, String name, Message_data data, ActionListener listener)
+
+    public void add_card(int id, String name, Message_data data, ActionListener listener)
     {
         Left_button button = new Left_button(name, data, listener);
+        button.id = id;
         //button.setSize(200, 40);
-        if(is_main_panel)
-            this.data.add(button);
         scroll_inner_panel.add(button);
-
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
-        select_button = button;
-
-        set_message(button);
         //button.setBounds(new Rectangle(10, 10));
     }
 
     public void add_card(Friend_confirm_card card)
     {
+        scroll_inner_panel.add(card);
+        scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+    }
 
+    public static void select_button_change(Left_button new_button)
+    {
+        select_button = new_button;
     }
 
     public ArrayList<Left_button> getData()

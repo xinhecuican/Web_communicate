@@ -4,7 +4,9 @@ import Main_window.Data.Send_data;
 
 import javax.swing.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author: 李子麟
@@ -17,8 +19,9 @@ public class User_message implements java.io.Serializable
     public boolean is_online;
     public String host;
     public int port;
-    protected List<Integer> friend_id;
-    public List<Send_data> data;
+    public boolean is_group;
+    protected List<Integer> friend_id;//线程安全
+    public List<Send_data> data;//线程安全
     private String password;
     public User_message(int id, String name, String password, boolean is_online, String host, int port)
     {
@@ -28,8 +31,10 @@ public class User_message implements java.io.Serializable
         this.host = host;
         this.port = port;
         this.password = password;
-        friend_id = new ArrayList<Integer>();
-        data = new ArrayList<Send_data>();
+        friend_id = new CopyOnWriteArrayList<Integer>();
+        List<Send_data> temp_list = new ArrayList<Send_data>();
+        data = Collections.synchronizedList(temp_list);
+        is_group = false;
     }
 
     public int get_id()

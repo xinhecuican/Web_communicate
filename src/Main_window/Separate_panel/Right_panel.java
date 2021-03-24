@@ -15,6 +15,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.regex.Pattern;
 
 public class Right_panel extends JPanel
 {
@@ -28,6 +29,7 @@ public class Right_panel extends JPanel
     SimpleAttributeSet other_set;
     SimpleAttributeSet user_set;
     SimpleAttributeSet user_set_name;
+    private static Pattern regex = Pattern.compile("\\s*");//匹配若干个空格
 
     public Right_panel()
     {
@@ -85,12 +87,13 @@ public class Right_panel extends JPanel
         {
             if(data.is_user)
             {
-                doc.insertString(doc.getLength(), Main.main_user.get_name() + "   " + data.time+"\n", user_set_name);
+                doc.insertString(doc.getLength(), Main.main_user.name + "   " + data.time+"\n", user_set_name);
                 doc.insertString(doc.getLength(), data.message+'\n', user_set);
             }
             else
             {
-                doc.insertString(doc.getLength(), Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
+                doc.insertString(doc.getLength(),
+                        Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
                 doc.insertString(doc.getLength(), data.message+'\n', other_set);
             }
 
@@ -169,7 +172,8 @@ public class Right_panel extends JPanel
                 }
                 else if(mode == JFileChooser.ERROR_OPTION)
                 {
-                    JOptionPane.showMessageDialog(file_chooser, "打开文件失败", "错误", JOptionPane.ERROR_MESSAGE, null);
+                    JOptionPane.showMessageDialog(file_chooser, "打开文件失败",
+                            "错误", JOptionPane.ERROR_MESSAGE, null);
                 }
 
             }
@@ -181,34 +185,15 @@ public class Right_panel extends JPanel
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                message_rightdata temp_data = new message_rightdata(Window.get_time(), enter_area.getText(), true);
-                Send_data send_data = new Send_data(Main.main_user.get_name(), temp_data,
-                        User.send_host, User.send_port);
-                try
+                String text = enter_area.getText();
+                if(!(regex.matcher(text).matches() || text.equals(""))
+                        && Left_panel.select_button != null)//不是空格并且选中一个选项卡
                 {
-                    send_data.my_host = InetAddress.getLocalHost().getHostAddress();
-                }
-                catch (UnknownHostException e)
-                {
-                    e.printStackTrace();
-                }
-                send_data.my_port = User_server.receive_port;
-                if (Main.need_reset || Left_panel.select_button == null)
-                {
-                    Main.need_reset = false;
-                    Main.main_user.send_message(send_data);
-                }
-                else
-                {
-                    send_data.send_host = Left_panel.select_button.recent_ip;
-                    send_data.send_port = Left_panel.select_button.recent_port;
-                    Main.main_user.send_message(send_data);
-                    add_piece_message(temp_data);
-                    Left_panel.select_button.add_message(temp_data);
+                    Main.main_user.send_message(new Send_data(Left_panel.select_button.id,
+                            new message_rightdata(Window.get_time(), text, false)));
+                    //给对方的，所以is_user = false
                 }
                 enter_area.setText("");
-
-
             }
         });
     }

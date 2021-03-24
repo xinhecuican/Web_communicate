@@ -1,16 +1,12 @@
 package Main_window.User_Server;
+import Main_window.Data.Friend_confirm_data;
 import Main_window.Data.Send_data;
-import Main_window.Data.Message_data;
 import Main_window.Main;
-import Main_window.Separate_panel.Friend_confirm_card;
-import Main_window.Separate_panel.Left_button;
-import Main_window.Window;
+import Main_window.Pop_window.Add_friend_window;
+import Main_window.Component.Friend_confirm_card;
 
-import javax.swing.*;
 import java.io.*;
-import java.net.InetAddress;
 import java.net.Socket;
-import java.util.ArrayList;
 
 /**
  * @author: 李子麟
@@ -41,14 +37,49 @@ public class User_Server_handle_thread extends Thread
 
         if(input_data.send_to_id == 2)//请求添加好友
         {
-            if(input_data.my_id == 2)//未搜索到好友的返回信息
+            Friend_confirm_card card;
+            if (input_data.my_id == 2)//未搜索到好友的返回信息
             {
-                Main.main_user.add_confirmed_card(new Friend_confirm_card(0, input_data.searched_user, 1));
+                card = new Friend_confirm_card(0, input_data.searched_user, 1);
+                Main.main_user.add_confirmed_data(new Friend_confirm_data(0, input_data.searched_user, 1));
             }
             else//给好友的信息
             {
-                Main.main_user.add_confirmed_card(new Friend_confirm_card(input_data.my_id, input_data.searched_user, 0));
+                card = new Friend_confirm_card(input_data.my_id, input_data.searched_user, 0);
+                Main.main_user.add_confirmed_data(new Friend_confirm_data(input_data.my_id, input_data.searched_user, 0));
             }
+            if(Add_friend_window.current != null)
+            {
+                Add_friend_window.current.add_confirm_message(card);
+            }
+        }
+        else if(input_data.send_to_id == 3)//成功添加好友
+        {
+            Main.main_user.add_friend(input_data.my_id, input_data.searched_user);
+            Friend_confirm_card card = new Friend_confirm_card(0, input_data.searched_user, 2);
+            Main.main_user.add_confirmed_data(new Friend_confirm_data(0, input_data.searched_user, 2));
+            if(Add_friend_window.current != null)
+            {
+                Add_friend_window.current.add_confirm_message(card);
+            }
+        }
+        else//正常信息
+        {
+            Main.main_user.add_message(input_data);
+            if(!input_data.data.is_user)
+            {
+                input_data.data.is_user = true;
+                Main.main_user.send_message(new Send_data(input_data.my_id, input_data.data));
+            }
+
+        }
+        try
+        {
+            socket.close();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
         }
     }
 }

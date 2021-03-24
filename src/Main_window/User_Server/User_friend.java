@@ -13,6 +13,7 @@ public class User_friend implements Serializable
     private int id;
     public String name;
     public Message_data communicate_data;
+    public boolean is_user_in_list;
 
     public User_friend()
     {
