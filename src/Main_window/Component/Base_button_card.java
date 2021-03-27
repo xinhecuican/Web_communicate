@@ -1,6 +1,7 @@
 package Main_window.Component;
 
 import Main_window.Data.Message_data;
+import Main_window.Data.User_group;
 import Main_window.Data.message_rightdata;
 import Main_window.User_Server.User_friend;
 import Main_window.Window;
@@ -14,7 +15,7 @@ import java.util.ArrayList;
  * @author: 李子麟
  * @date: 2021/3/15 21:09
  **/
-public class Left_button extends JButton
+public class Base_button_card extends JButton
 {
     private String name;
     private String nearest_message;
@@ -22,15 +23,13 @@ public class Left_button extends JButton
     private JPanel root_panel;
     public Message_data data;
     public int id;
-    public Left_button()
+    public Base_button_card()
     {
         name = "";
         data = new Message_data();
-        setContentAreaFilled(false);
-        setLayout(new GridBagLayout());
     }
 
-    public Left_button(String name, Message_data data, ActionListener listener)
+    public Base_button_card(String name, Message_data data, ActionListener listener)
     {
         this.name = name;
         nearest_message = "";
@@ -41,32 +40,42 @@ public class Left_button extends JButton
             time = data.recently_message().time;
         }
         this.data = data;
-        setContentAreaFilled(false);
-        setLayout(new GridBagLayout());
         set_style(listener);
     }
 
-    public Left_button(String name, String id, ActionListener listener)
+    public Base_button_card(String name, String id, ActionListener listener)
     {
         this.name = name;
         this.nearest_message = id;
-        setContentAreaFilled(false);
-        setLayout(new GridBagLayout());
         set_style(listener);
     }
 
-    public Left_button(User_friend friend)
+    public Base_button_card(User_friend friend, ActionListener listener)
     {
         id = friend.getId();
-        name = friend.name;
+        name = friend.getName();
         data = friend.communicate_data;
         nearest_message = !data.is_empty() ? data.recently_message().message : "";
         time = !data.is_empty() ? data.recently_message().time : "";
+
+        set_style(listener);
+    }
+
+    public Base_button_card(User_group group, ActionListener listener)
+    {
+        id = group.getGroup_id();
+        name = group.getGroup_name();
+        data = group.data;
+        nearest_message = !data.is_empty() ? data.recently_message().message : "";
+        time = !data.is_empty() ? data.recently_message().time : "";
+        set_style(listener);
     }
 
     private void set_style(ActionListener listener)
     {
-        setMaximumSize(new Dimension(220, 60));
+        setContentAreaFilled(false);
+        setLayout(new GridBagLayout());
+        //setMaximumSize(new Dimension(220, 60));
         root_panel = new JPanel();
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
@@ -91,7 +100,7 @@ public class Left_button extends JButton
         addActionListener(listener);
     }
 
-    public static void set_message(Left_button select_button)
+    public static void set_message(Base_button_card select_button)
     {
         ArrayList<message_rightdata> rightdataList = (ArrayList<message_rightdata>) select_button.data.get_datalist();
         Window.current.getRight_panel().clear();

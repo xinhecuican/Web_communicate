@@ -1,6 +1,7 @@
 package Server.Data;
 
 import Main_window.Data.Login_data;
+import Main_window.Data.Send_data;
 import Server.Server_main;
 import Server.User_message;
 
@@ -15,10 +16,12 @@ import java.util.List;
 public class All_users implements Serializable
 {
     public List<User_message> all_users;
+    public List<Group_message> all_groups;
     public int max_number;
     public All_users()
     {
         all_users = new ArrayList<User_message>();
+        all_groups = new ArrayList<>();
         max_number = 10000;
     }
 
@@ -27,7 +30,17 @@ public class All_users implements Serializable
         int id = max_number + 1;
         max_number += 1;
         String s = get_password(data.password);
-        all_users.add(new User_message(id, data.name, s,true, data.host, data.port));
+        all_users.add(new User_message(id, data.name, s,false, data.host, data.port));
+        return id;
+    }
+
+    public synchronized int create_group(Send_data data)
+    {
+        int id = max_number + 1;
+        max_number += 1;
+        Group_message message = new Group_message(id, data.searched_user, data.my_id, data.data.message);
+        message.group_users.add(data.my_id);
+        all_groups.add(message);
         return id;
     }
 

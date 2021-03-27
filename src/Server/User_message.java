@@ -19,7 +19,6 @@ public class User_message implements java.io.Serializable
     public boolean is_online;
     public String host;
     public int port;
-    public boolean is_group;
     protected List<Integer> friend_id;//线程安全
     public List<Send_data> data;//线程安全
     private String password;
@@ -34,7 +33,6 @@ public class User_message implements java.io.Serializable
         friend_id = new CopyOnWriteArrayList<Integer>();
         List<Send_data> temp_list = new ArrayList<Send_data>();
         data = Collections.synchronizedList(temp_list);
-        is_group = false;
     }
 
     public int get_id()

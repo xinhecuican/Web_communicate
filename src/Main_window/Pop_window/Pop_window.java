@@ -18,8 +18,6 @@ public class Pop_window extends JDialog
     public Pop_window(JFrame parent)
     {
         super(parent);
-
-        pack();
         setResizable(false);
         setVisible(true);
         setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);

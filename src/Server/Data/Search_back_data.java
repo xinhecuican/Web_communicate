@@ -1,5 +1,7 @@
 package Server.Data;
 
+import Server.User_message;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,17 +12,20 @@ import java.util.List;
  **/
 public class Search_back_data implements Serializable
 {
-    public List<Integer> id;
-    public List<String> name;
+    public List<one_piece_search_data> data;
     public Search_back_data()
     {
-        id = new ArrayList<Integer>();
-        name = new ArrayList<String>();
+        data = new ArrayList<one_piece_search_data>();
     }
 
-    public void add(int id, String name)
+    public void add(int id, String name, boolean is_group)
     {
-        this.id.add(id);
-        this.name.add(name);
+        one_piece_search_data one_piece_search_data = new one_piece_search_data(id, name, is_group);
+        data.add(one_piece_search_data);
+    }
+
+    public void add(User_message message)
+    {
+        data.add(new one_piece_search_data(message));
     }
 }

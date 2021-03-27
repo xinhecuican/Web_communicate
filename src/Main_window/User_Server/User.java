@@ -1,13 +1,10 @@
 package Main_window.User_Server;
 
-import Main_window.Data.Friend_confirm_data;
-import Main_window.Data.Login_data;
-import Main_window.Data.Send_data;
+import Main_window.Data.*;
 import Main_window.Login_window;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
-import Main_window.Component.Friend_confirm_card;
-import Main_window.Separate_panel.Left_panel;
+import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Window;
 import Server.Data.Login_back_data;
 import Server.Data.Search_back_data;
@@ -19,7 +16,8 @@ import java.net.Socket;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.TimerTask;
+import java.util.Timer;
 
 /**
  * @author: 李子麟
@@ -32,16 +30,24 @@ public class User implements Serializable
     private int id;
     private List<User_friend> friends;
     private List<Friend_confirm_data> confirm_data;
+    private Friend_list_data friend_list_data;
+    private List<User_group> groups;
 
     public User()
     {
         friends = new ArrayList<User_friend>();
         confirm_data = new ArrayList<Friend_confirm_data>();
+        friend_list_data = new Friend_list_data();
+        groups = new ArrayList<>();
     }
 
     public User(String name)
     {
         this.name = name;
+        friends = new ArrayList<User_friend>();
+        confirm_data = new ArrayList<Friend_confirm_data>();
+        friend_list_data = new Friend_list_data();
+        groups = new ArrayList<>();
     }
 
     public void send_message(Send_data message)
@@ -56,18 +62,11 @@ public class User implements Serializable
                 ObjectOutputStream out = new ObjectOutputStream(outToServer);
                 message.my_id = id;
                 out.writeObject(message);
-                if (message.send_to_id == 1) //搜索用户的返回信息
+                if(message.data_type == Send_data.Data_type.Search_friend)
                 {
                     client.setSoTimeout(30 * 1000);
-                    if(message.my_id == 1)
-                    {
-                        if(Add_friend_window.current != null)
-                        {
-                            Add_friend_window.current.set_tooltip_message("未找到对应用户");
-                        }
-                    }
                     InputStream inputStream = client.getInputStream();
-                    ObjectInputStream input_stream = new ObjectInputStream(inputStream);
+                    ObjectInputStream input_stream = new ObjectInputStream(inputStream);//搜索好友的返回信息
                     Search_back_data back_data = (Search_back_data) input_stream.readObject();
                     if (Add_friend_window.current != null)
                     {
@@ -93,7 +92,6 @@ public class User implements Serializable
      */
     public void send_login_message(String name, int user_id, boolean is_register, String password)
     {
-
         new Thread(()->
         {
             try
@@ -140,6 +138,8 @@ public class User implements Serializable
                 out.flush();
                 out.writeObject(login_data);
                 out.flush();
+
+                //接收注册及登录信息
                 socket.setSoTimeout(30 *  1000);
                 InputStream inputStream = socket.getInputStream();
                 ObjectInputStream input = new ObjectInputStream(inputStream);
@@ -164,32 +164,30 @@ public class User implements Serializable
                     {
                         JOptionPane.showMessageDialog(null, "成功注册\n 账号id为"+back_data.id,
                                 "消息", JOptionPane.INFORMATION_MESSAGE);
+                        this.name = back_data.name;
                         id = back_data.id;
                     }
                     else//登录成功
                     {
-                        load_from_data(user_id);
-                        for(Send_data data : back_data.storage_data)
+                        if(back_data.id == 10)
                         {
-                            if(data.send_to_id == 2)
+                            java.util.Timer timer = new Timer();
+                            TimerTask task = new TimerTask()
                             {
-                                if(data.my_id == 2)
+                                @Override
+                                public void run()
                                 {
-                                    Main.main_user.add_confirmed_data(new Friend_confirm_data(0, data.searched_user, 1));
+                                    Send_data data = new Send_data();
+                                    data.data_type = Send_data.Data_type.None;
+                                    send_message(data);
                                 }
-                                else
-                                {
-                                    Main.main_user.add_confirmed_data(new Friend_confirm_data(data.my_id, data.searched_user, 0));
-                                }
-                            }
-                            else if(data.send_to_id == 3)
-                            {
-                                Main.main_user.add_confirmed_data(new Friend_confirm_data(0, data.searched_user, 2));
-                            }
-                            else
-                            {
-                                Main.main_user.add_message(data);
-                            }
+                            };
+                            timer.schedule(task, 0, 60 * 1000);
+                        }
+                        load_from_data(user_id);
+                        for(Send_data data : back_data.storage_data)//加载下线期间发来的消息
+                        {
+                            User_Server_handle_thread.handle_message(data);
                         }
                         Login_window.current.dispose();
                         new Window("网络聊天室");
@@ -222,9 +220,64 @@ public class User implements Serializable
         return id;
     }
 
-    public synchronized void add_friend(int id, String name)
+    public void add_group(int id, String name)
     {
-        friends.add(new User_friend(id, name));
+        int low = 0, high = groups.size() - 1;
+        while(low <= high)
+        {
+            int mid = (low + high) / 2;
+            int compare_id = groups.get(mid).getGroup_id();
+            if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+        synchronized (this)
+        {
+            friend_list_data.add_friend("我的群聊", id);
+            groups.add(high+1, new User_group(id, name));
+        }
+    }
+
+    public void add_friend(int id, String name)
+    {
+        //boolean is_success = false;
+        int low = 0, high = friends.size() - 1;
+        while(low <= high)
+        {
+            int mid = (low + high) / 2;
+            int compare_id = friends.get(mid).getId();
+            if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+        synchronized (this)
+        {
+            friends.add(high + 1, new User_friend(id, name));
+            friend_list_data.add_friend("我的好友", id);
+        }
+        /*for(int i=0; i<friends.size(); i++)
+        {
+            if(friends.get(i).getId() >= id)
+            {
+                friends.add(i, new User_friend(id, name));
+                is_success = true;
+                break;
+            }
+        }
+        if(!is_success)
+        {
+            friends.add(new User_friend(id, name));
+        }*/
     }
 
     public void remove_confirm_card(int id)
@@ -262,13 +315,52 @@ public class User implements Serializable
         return friends;
     }
 
+    public List<User_group> get_all_groups() { return groups;}
+
     public User_friend find_friend(int id)
     {
-        for(User_friend friend : friends)
+        //前面添加朋友是按序的，所以可以二分
+        int low = 0;
+        int high = friends.size() - 1;
+        while(low <= high)
         {
-            if(id == friend.getId())
+            int mid = (low + high) / 2;
+            int compare_id = friends.get(mid).getId();
+            if(compare_id == id)
             {
-                return friend;
+                return friends.get(mid);
+            }
+            else if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+        return null;
+    }
+
+    public User_group find_group(int id)
+    {
+        int low = 0;
+        int high = groups.size() - 1;
+        while(low <= high)
+        {
+            int mid = (low + high) / 2;
+            int compare_id = groups.get(mid).getGroup_id();
+            if(compare_id == id)
+            {
+                return groups.get(mid);
+            }
+            else if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
             }
         }
         return null;
@@ -278,9 +370,41 @@ public class User implements Serializable
     {
         User_friend friend = find_friend(send_data.my_id);
         friend.communicate_data.add(send_data.data);
-        if(Left_panel.select_button.id == friend.getId())
+        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == friend.getId())
         {
             Window.current.getRight_panel().add_piece_message(send_data.data);
+        }
+    }
+
+    public void add_group_message(Send_data data)
+    {
+        User_group group = find_group(data.send_to_id);
+        group.data.add(data.data);
+        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == group.getGroup_id())
+        {
+            Window.current.getRight_panel().add_piece_message(data.data);
+        }
+    }
+
+
+    /**
+     *
+     * @param id
+     * @param data
+     * @return 如果是假，则表示是群，真为用户
+     */
+    public boolean add_message(int id, message_rightdata data)
+    {
+        User_friend friend;
+        if((friend = find_friend(id)) == null)
+        {
+            find_group(id).data.add(data);
+            return false;
+        }
+        else
+        {
+            friend.communicate_data.add(data);
+            return true;
         }
     }
 
@@ -324,5 +448,10 @@ public class User implements Serializable
                 e.printStackTrace();
             }
         }
+    }
+
+    public List<Tree_data> get_friend_list_data()
+    {
+        return friend_list_data.get_tree_data();
     }
 }

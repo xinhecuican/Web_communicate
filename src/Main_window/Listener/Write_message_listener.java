@@ -1,12 +1,12 @@
 package Main_window.Listener;
 
-import Main_window.Component.Left_button;
-import Main_window.Separate_panel.Left_panel;
+import Main_window.Component.Base_button_card;
+import Main_window.Separate_panel.Scroll_panel;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-import static Main_window.Component.Left_button.set_message;
+import static Main_window.Component.Base_button_card.set_message;
 
 /**
  * @author: 李子麟
@@ -19,8 +19,8 @@ public class Write_message_listener implements ActionListener
     @Override
     public void actionPerformed(ActionEvent actionEvent)
     {
-        Left_panel.select_button_change((Left_button)actionEvent.getSource());
-        set_message(Left_panel.select_button);
+        Scroll_panel.select_button_change((Base_button_card)actionEvent.getSource());
+        set_message(Scroll_panel.select_button);
     }
 
 

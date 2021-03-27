@@ -1,7 +1,7 @@
 package Main_window.Listener;
 
-import Main_window.Component.Left_button;
-import Main_window.Separate_panel.Left_panel;
+import Main_window.Component.Base_button_card;
+import Main_window.Main;
 import Main_window.Window;
 
 import java.awt.event.ActionEvent;
@@ -17,9 +17,8 @@ public class Show_card_listener implements ActionListener
     @Override
     public void actionPerformed(ActionEvent actionEvent)
     {
-        Left_button button = (Left_button)actionEvent.getSource();
-        Window.current.getLeft_panel().add_card(button.id,
-                button.get_name(), button.data, new Write_message_listener());
+        Base_button_card button = (Base_button_card)actionEvent.getSource();
+        Window.current.getScroll_panel().add_card(Main.main_user.find_friend(button.id));
         Window.current.requestFocus();
     }
 }

@@ -14,14 +14,13 @@ public class message_rightdata implements java.io.Serializable
         public String time;
         public String message;
         public List<color_data> color_dataList;
-        public boolean is_user;
-        public message_rightdata(String time, String message, color_data data, boolean is_user)
+        public String message_sender_name;
+        public message_rightdata(String time, String message, color_data data)
         {
                 this.time = time;
                 this.message = message;
                 color_dataList = new ArrayList<color_data>();
                 color_dataList.add(data);
-                this.is_user = is_user;
         }
 
         public message_rightdata()
@@ -29,15 +28,14 @@ public class message_rightdata implements java.io.Serializable
                 time = "";
                 message = "";
                 color_dataList = new ArrayList<color_data>();
-                is_user = false;
         }
 
-        public message_rightdata(String time, String message, boolean is_user)
+        public message_rightdata(String time, String message, String message_sender_name)
         {
                 this.time = time;
                 this.message = message;
                 color_dataList = new ArrayList<color_data>();
-                this.is_user = is_user;
+                this.message_sender_name = message_sender_name;
         }
 
 }

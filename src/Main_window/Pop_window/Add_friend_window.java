@@ -1,5 +1,6 @@
 package Main_window.Pop_window;
 
+import Main_window.Component.Base_confirm_card;
 import Main_window.Data.Friend_confirm_data;
 import Main_window.Data.Message_data;
 import Main_window.Data.Send_data;
@@ -7,7 +8,7 @@ import Main_window.Data.message_rightdata;
 import Main_window.Listener.Confirm_add_friend_listener;
 import Main_window.Main;
 import Main_window.Component.Friend_confirm_card;
-import Main_window.Separate_panel.Left_panel;
+import Main_window.Separate_panel.Scroll_panel;
 import Server.Data.Search_back_data;
 
 import javax.swing.*;
@@ -29,9 +30,10 @@ public class Add_friend_window extends Pop_window
     public static Add_friend_window current;
     JPanel root_panel;
     private static final String hint_text = "输入用户名或Id添加好友";
-    private Left_panel add_friend_panel;
-    private Left_panel friend_confirm_panel;
+    private Scroll_panel add_friend_panel;
+    private Scroll_panel friend_confirm_panel;
     private JTextField textField;
+    private JTabbedPane tab_panel;
     public Add_friend_window(JFrame parent)
     {
         super(parent);
@@ -63,7 +65,7 @@ public class Add_friend_window extends Pop_window
             {
                 String search_text = search_field.getText();
                 Send_data data = new Send_data();
-                data.send_to_id = 1;
+                data.data_type = Send_data.Data_type.Search_friend;
                 data.searched_user = search_text;
                 Main.main_user.send_message(data);
             }
@@ -73,11 +75,11 @@ public class Add_friend_window extends Pop_window
         constraints.weightx = 0;
         constraints.gridwidth = 0;
         layout.setConstraints(button_confirm, constraints);*/
-        JTabbedPane tab_panel = new JTabbedPane();
-        add_friend_panel = new Left_panel();
+        tab_panel = new JTabbedPane();
+        add_friend_panel = new Scroll_panel();
         add_friend_panel.add_search_panel(search_field, button_confirm);
         tab_panel.addTab("添加好友", add_friend_panel);
-        friend_confirm_panel = new Left_panel();
+        friend_confirm_panel = new Scroll_panel();
         tab_panel.addTab("验证消息", friend_confirm_panel);
         root_panel.add(tab_panel, BorderLayout.CENTER);
         textField = new JTextField();
@@ -91,27 +93,35 @@ public class Add_friend_window extends Pop_window
             {
                 if(tab_panel.getSelectedIndex() == 1)
                 {
+                    friend_confirm_panel.remove_all_cards();
                     ArrayList<Friend_confirm_data> dataList = Main.main_user.getConfirm_data();
                     for(int i=dataList.size()-1; i>=0; i--)
                     {
-                        friend_confirm_panel.add_card(new Friend_confirm_card(dataList.get(i).id,
-                                dataList.get(i).name, dataList.get(i).mode));
+                        friend_confirm_panel.add_card(new Friend_confirm_card(dataList.get(i)));
                     }
                 }
             }
         });
         setPreferredSize(new Dimension(600, 600));
-        setSize(new Dimension(600, 600));
+        pack();
     }
 
     public synchronized void add_friend_card(Search_back_data data)
     {
-        for(int i=0; i<data.id.size(); i++)
+        for(int i=0; i<data.data.size(); i++)
+        {
+            Base_confirm_card confirm_card = new Base_confirm_card(data.data.get(i).name,
+                    data.data.get(i).is_group ? "群" : "好友", "id:" + String.valueOf(data.data.get(i).id),
+                    new Confirm_add_friend_listener(data.data.get(i).name,
+                            String.valueOf(data.data.get(i).id), data.data.get(i).is_group));
+            add_friend_panel.add_component(confirm_card);
+        }
+        /*for(int i=0; i<data.id.size(); i++)
         {
             add_friend_panel.add_card(0, data.name.get(i),
                     new Message_data(new message_rightdata("", String.valueOf(data.id.get(i)), false)),
                     new Confirm_add_friend_listener(data.name.get(i), String.valueOf(data.id.get(i))));
-        }
+        }*/
     }
 
     public synchronized void add_confirm_message(Friend_confirm_card card)
@@ -119,13 +129,13 @@ public class Add_friend_window extends Pop_window
         friend_confirm_panel.add_card(card);
     }
 
+    public int get_select_panel_index()
+    {
+        return tab_panel.getSelectedIndex();
+    }
+
     public void set_tooltip_message(String text)
     {
         textField.setText(text);
-    }
-
-    public void load_friend_confirm_message()
-    {
-
     }
 }

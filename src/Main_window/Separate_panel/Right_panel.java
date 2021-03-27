@@ -3,8 +3,6 @@ package Main_window.Separate_panel;
 import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
 import Main_window.Main;
-import Main_window.User_Server.User_server;
-import Main_window.User_Server.User;
 import Main_window.Window;
 
 import javax.swing.*;
@@ -13,8 +11,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.regex.Pattern;
 
 public class Right_panel extends JPanel
@@ -85,18 +81,9 @@ public class Right_panel extends JPanel
         Document doc = message_inner_panel.getStyledDocument();
         try
         {
-            if(data.is_user)
-            {
-                doc.insertString(doc.getLength(), Main.main_user.name + "   " + data.time+"\n", user_set_name);
-                doc.insertString(doc.getLength(), data.message+'\n', user_set);
-            }
-            else
-            {
-                doc.insertString(doc.getLength(),
-                        Left_panel.select_button.get_name() + "   " + data.time+"\n", other_set_name);
-                doc.insertString(doc.getLength(), data.message+'\n', other_set);
-            }
-
+            doc.insertString(doc.getLength(), data.message_sender_name + "   " + data.time+"\n", user_set_name);
+            doc.insertString(doc.getLength(), data.message+'\n', user_set);
+            message_inner_panel.updateUI();
 
         }
         catch (Exception e)
@@ -187,10 +174,16 @@ public class Right_panel extends JPanel
             {
                 String text = enter_area.getText();
                 if(!(regex.matcher(text).matches() || text.equals(""))
-                        && Left_panel.select_button != null)//不是空格并且选中一个选项卡
+                        && Scroll_panel.select_button != null)//不是空格并且选中一个选项卡
                 {
-                    Main.main_user.send_message(new Send_data(Left_panel.select_button.id,
-                            new message_rightdata(Window.get_time(), text, false)));
+                    add_piece_message(new message_rightdata(Window.get_time(), text, Main.main_user.name));
+                    boolean is_user = Main.main_user.add_message(Scroll_panel.select_button.id,
+                            new message_rightdata(Window.get_time(), text, Main.main_user.name));
+                    Send_data send_data = new Send_data(Scroll_panel.select_button.id,
+                            new message_rightdata(Window.get_time(), text, Main.main_user.name));
+                    send_data.data_type = is_user ?
+                            Send_data.Data_type.One_piece_message : Send_data.Data_type.Piece_group_message;
+                    Main.main_user.send_message(send_data);
                     //给对方的，所以is_user = false
                 }
                 enter_area.setText("");
