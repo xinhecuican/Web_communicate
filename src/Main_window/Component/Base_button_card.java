@@ -77,6 +77,7 @@ public class Base_button_card extends JButton
         setLayout(new GridBagLayout());
         //setMaximumSize(new Dimension(220, 60));
         root_panel = new JPanel();
+        root_panel.setOpaque(false);
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
         constraints.weightx = 1;

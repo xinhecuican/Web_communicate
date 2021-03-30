@@ -4,10 +4,16 @@ import Main_window.Data.Send_data;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
 import Main_window.Component.Friend_confirm_card;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.Unpooled;
 
 import javax.swing.*;
 import java.io.*;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 
 /**
  * @author: 李子麟
@@ -15,37 +21,43 @@ import java.net.Socket;
  **/
 public class User_Server_handle_thread extends Thread
 {
-    private Socket socket;
-    public User_Server_handle_thread(Socket socket)
+    private SelectionKey key;
+    private ByteBuf buf;
+    public User_Server_handle_thread(SelectionKey socket)
     {
-        this.socket = socket;
+        this.key = key;
+        buf = Unpooled.buffer(256);
     }
     @Override
     public void run()
     {
         super.run();
+        ObjectInputStream input = null;
         Send_data input_data = new Send_data();
-        try
+        SocketChannel channel = (SocketChannel)key.channel();
+        ByteBuffer buffer=  ByteBuffer.allocate(1024);
+        try//读取数据
         {
-            InputStream stream = socket.getInputStream();
-            ObjectInputStream inputStream = new ObjectInputStream(stream);
-            input_data = (Send_data)inputStream.readObject();
+            while (true)
+            {
+                buffer.flip();
+                if (!(channel.read(buffer) > 0))
+                    break;
+                buf.writeBytes(buffer);
+                buffer.clear();
+
+            }
+            ByteBufInputStream inputStream = new ByteBufInputStream(buf);
+            input = new ObjectInputStream(inputStream);
+            input_data = (Send_data)input.readObject();
         }
-        catch (Exception e)
+        catch (IOException | ClassNotFoundException e)
         {
             e.printStackTrace();
         }
 
         handle_message(input_data);
-
-        try
-        {
-            socket.close();
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+        key.cancel();
     }
 
     public static void handle_message(Send_data input_data)

@@ -8,15 +8,24 @@ import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Window;
 import Server.Data.Login_back_data;
 import Server.Data.Search_back_data;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
+import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 
 import javax.swing.*;
 import java.io.*;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.Timer;
 
 /**
@@ -54,26 +63,67 @@ public class User implements Serializable
     {
         new Thread(()->
         {
-            Socket client;
             try
             {
-                client = new Socket("192.168.137.1", 10088);
-                OutputStream outToServer = client.getOutputStream();
-                ObjectOutputStream out = new ObjectOutputStream(outToServer);
-                message.my_id = id;
-                out.writeObject(message);
-                if(message.data_type == Send_data.Data_type.Search_friend)
+                SocketChannel channel = SocketChannel.open();
+                channel.configureBlocking(false);
+                Selector selector = Selector.open();
+                //channel.register(selector, SelectionKey.OP_CONNECT);
+                channel.connect(new InetSocketAddress("192.168.137.1", 10088));
+                ;
+                channel.write(ByteBuffer.wrap("hello".getBytes()));
+                while(selector.select() > 0)
                 {
-                    client.setSoTimeout(30 * 1000);
-                    InputStream inputStream = client.getInputStream();
-                    ObjectInputStream input_stream = new ObjectInputStream(inputStream);//搜索好友的返回信息
-                    Search_back_data back_data = (Search_back_data) input_stream.readObject();
-                    if (Add_friend_window.current != null)
+                    Iterator iterator = selector.selectedKeys().iterator();
+                    while (iterator.hasNext())
                     {
-                        Add_friend_window.current.add_friend_card(back_data);
+                        SelectionKey key = (SelectionKey) iterator.next();
+                        iterator.remove();
+                        if (key.isConnectable())
+                        {
+                            SocketChannel socketChannel = (SocketChannel) key.channel();
+                            if (socketChannel.isConnectionPending())
+                            {
+                                channel.finishConnect();
+                            }
+                            ByteBuf buf = Unpooled.buffer(10);
+                            ByteBufOutputStream outputStream = new ByteBufOutputStream(buf);
+                            ObjectEncoderOutputStream out = new ObjectEncoderOutputStream(outputStream);
+                            out.writeObject(message);
+                            ByteBuffer byteBuffer = buf.nioBuffer();
+                            while (byteBuffer.hasRemaining())
+                            {
+                                channel.write(byteBuffer);
+                            }
+                            socketChannel.configureBlocking(false);
+                            socketChannel.register(selector, SelectionKey.OP_READ);
+                        }
+                        else if(key.isReadable())
+                        {
+                            if(message.data_type == Send_data.Data_type.Search_friend)
+                            {
+                                ByteBuf buf = Unpooled.buffer(10);
+                                ByteBuffer buffer = ByteBuffer.allocate(1024);
+                                while (true)
+                                {
+                                    if (!(channel.read(buffer) > 0))
+                                        break;
+                                    buffer.flip();
+                                    buf.readBytes(buffer);
+                                    buffer.clear();
+                                }
+                                ByteBufInputStream inputStream = new ByteBufInputStream(buf);
+                                ObjectDecoderInputStream input = new ObjectDecoderInputStream(inputStream);
+                                Search_back_data back_data = (Search_back_data) input.readObject();
+                                if(Add_friend_window.current != null)
+                                {
+                                    Add_friend_window.current.add_friend_card(back_data);
+                                }
+                            }
+                        }
                     }
                 }
-                client.close();
+                channel.close();
             }
             catch (Exception e)
             {
@@ -96,104 +146,103 @@ public class User implements Serializable
         {
             try
             {
-                Socket socket = new Socket("192.168.137.1", 10087);
-                OutputStream outToServer = socket.getOutputStream();
-                ObjectOutputStream out = new ObjectOutputStream(outToServer);
-                MessageDigest md5 = null;
-                try
-                {
-                    md5 = MessageDigest.getInstance("MD5");
-                } catch (Exception e)
-                {
-                    e.printStackTrace();
-                }
-                //加密开始
-                char[] charArray = password.toCharArray();
-                byte[] byteArray = new byte[charArray.length];
+                SocketChannel channel = SocketChannel.open();
+                channel.configureBlocking(false);
+                Selector selector = Selector.open();
 
-                for (int i = 0; i < charArray.length; i++)
-                    byteArray[i] = (byte) charArray[i];
-                assert md5 != null;
-                byte[] md5Bytes = md5.digest(byteArray);
-                StringBuffer hexValue = new StringBuffer();
-                for (int i = 0; i < md5Bytes.length; i++)
-                {
-                    int val = ((int) md5Bytes[i]) & 0xff;
-                    if (val < 16)
-                        hexValue.append("0");
-                    hexValue.append(Integer.toHexString(val));
-                }
-                char[] a = hexValue.toString().toCharArray();
-                for (int i = 0; i < a.length; i++)
-                {
-                    a[i] = (char) (a[i] ^ 't');
-                }
-                String s = new String(a);
-                //加密结束
-                Login_data login_data = new Login_data(
-                        InetAddress.getLocalHost().getHostAddress(),
-                        User_server.receive_port, user_id, s, Main.main_user.name);
-                login_data.name = name;
-                login_data.is_regesiter = is_register;
-                out.flush();
-                out.writeObject(login_data);
-                out.flush();
+                //channel.register(selector, SelectionKey.OP_CONNECT);
+                channel.connect(new InetSocketAddress("192.168.137.1", 10087));
+                while (!channel.finishConnect());
+                write_login_message(channel, name, user_id, is_register, password);//向服务器写信息
 
-                //接收注册及登录信息
-                socket.setSoTimeout(30 *  1000);
-                InputStream inputStream = socket.getInputStream();
-                ObjectInputStream input = new ObjectInputStream(inputStream);
-                Login_back_data back_data = (Login_back_data)input.readObject();
-                if(back_data.is_error)
+                while(selector.select() > 0)
                 {
-                    if(id == 10)//正常返回用户好友信息,本地信息缺失的情况下
+                    Iterator iterator = selector.selectedKeys().iterator();
+                    while(iterator.hasNext())
                     {
-                        for(Send_data send_data : back_data.storage_data)
+                        SelectionKey key = (SelectionKey) iterator.next();
+                        iterator.remove();
+                        if(key.isConnectable())
                         {
-                            friends.add(new User_friend(send_data.send_to_id, send_data.searched_user));
-                        }
-                    }
-                    else
-                    {
-                        Main.login_window.set_text("用户名或密码错误");
-                    }
-                }
-                else//成功
-                {
-                    if(is_register)
-                    {
-                        JOptionPane.showMessageDialog(null, "成功注册\n 账号id为"+back_data.id,
-                                "消息", JOptionPane.INFORMATION_MESSAGE);
-                        this.name = back_data.name;
-                        id = back_data.id;
-                    }
-                    else//登录成功
-                    {
-                        if(back_data.id == 10)
-                        {
-                            java.util.Timer timer = new Timer();
-                            TimerTask task = new TimerTask()
+                            SocketChannel socketChannel = (SocketChannel) key.channel();
+                            if(socketChannel.isConnectionPending())
                             {
-                                @Override
-                                public void run()
-                                {
-                                    Send_data data = new Send_data();
-                                    data.data_type = Send_data.Data_type.None;
-                                    send_message(data);
-                                }
-                            };
-                            timer.schedule(task, 0, 60 * 1000);
-                        }
-                        load_from_data(user_id);
-                        for(Send_data data : back_data.storage_data)//加载下线期间发来的消息
-                        {
-                            User_Server_handle_thread.handle_message(data);
-                        }
-                        Login_window.current.dispose();
-                        new Window("网络聊天室");
-                    }
+                                channel.finishConnect();
+                            }
 
+                            socketChannel.configureBlocking(false);
+                            //socketChannel.register(selector, SelectionKey.OP_READ);
+                            write_login_message(socketChannel, name, user_id, is_register, password);//向服务器写信息
+                        }
+                        else if(key.isReadable())
+                        {
+                            ByteBuf buf = Unpooled.buffer(10);
+                            ByteBuffer buffer = ByteBuffer.allocate(1024);
+                            while (true)
+                            {
+                                buffer.flip();
+                                if (!(channel.read(buffer) > 0))
+                                    break;
+                                buf.writeBytes(buffer);
+                                buffer.clear();
+                            }
+                            ByteBufInputStream inputStream = new ByteBufInputStream(buf);
+                            ObjectDecoderInputStream input = new ObjectDecoderInputStream(inputStream);
+                            Login_back_data back_data = (Login_back_data)input.readObject();
+                            //接收注册和登录信息
+                            if(back_data.is_error)
+                            {
+                                if(id == 10)//正常返回用户好友信息,本地信息缺失的情况下
+                                {
+                                    for(Send_data send_data : back_data.storage_data)
+                                    {
+                                        friends.add(new User_friend(send_data.send_to_id, send_data.searched_user));
+                                    }
+                                }
+                                else
+                                {
+                                    Main.login_window.set_text("用户名或密码错误");
+                                }
+                            }
+                            else//成功
+                            {
+                                if(is_register)
+                                {
+                                    JOptionPane.showMessageDialog(null, "成功注册\n 账号id为"+back_data.id,
+                                            "消息", JOptionPane.INFORMATION_MESSAGE);
+                                    this.name = back_data.name;
+                                    id = back_data.id;
+                                }
+                                else//登录成功
+                                {
+                                    if(back_data.id == 10)
+                                    {
+                                        java.util.Timer timer = new Timer();
+                                        TimerTask task = new TimerTask()
+                                        {
+                                            @Override
+                                            public void run()
+                                            {
+                                                Send_data data = new Send_data();
+                                                data.data_type = Send_data.Data_type.None;
+                                                send_message(data);
+                                            }
+                                        };
+                                        timer.schedule(task, 0, 60 * 1000);
+                                    }
+                                    load_from_data(user_id);
+                                    for(Send_data data : back_data.storage_data)//加载下线期间发来的消息
+                                    {
+                                        User_Server_handle_thread.handle_message(data);
+                                    }
+                                    Login_window.current.dispose();
+                                    new Window("网络聊天室");
+                                }
+                            }
+                        }
+                    }
                 }
+                channel.close();
             }
             catch (IOException e)
             {
@@ -206,6 +255,63 @@ public class User implements Serializable
                 e2.printStackTrace();
             }
         }).start();
+    }
+
+    private void write_login_message(SocketChannel channel, String name, int user_id, boolean is_register, String password)
+    {
+        MessageDigest md5 = null;
+        try
+        {
+            md5 = MessageDigest.getInstance("MD5");
+        } catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        //加密开始
+        char[] charArray = password.toCharArray();
+        byte[] byteArray = new byte[charArray.length];
+
+        for (int i = 0; i < charArray.length; i++)
+            byteArray[i] = (byte) charArray[i];
+        assert md5 != null;
+        byte[] md5Bytes = md5.digest(byteArray);
+        StringBuffer hexValue = new StringBuffer();
+        for (int i = 0; i < md5Bytes.length; i++)
+        {
+            int val = ((int) md5Bytes[i]) & 0xff;
+            if (val < 16)
+                hexValue.append("0");
+            hexValue.append(Integer.toHexString(val));
+        }
+        char[] a = hexValue.toString().toCharArray();
+        for (int i = 0; i < a.length; i++)
+        {
+            a[i] = (char) (a[i] ^ 't');
+        }
+        String s = new String(a);
+        //加密结束
+        try
+        {
+            Login_data login_data = new Login_data(
+                    InetAddress.getLocalHost().getHostAddress(),
+                    User_server.receive_port, user_id, s, Main.main_user.name
+            );
+            login_data.name = name;
+            login_data.is_regesiter = is_register;
+            ByteBuf buf = Unpooled.buffer(256);
+            ByteBufOutputStream outputStream = new ByteBufOutputStream(buf);
+            ObjectEncoderOutputStream out = new ObjectEncoderOutputStream(outputStream);
+            out.writeObject(login_data);
+            ByteBuffer byteBuffer = buf.nioBuffer();
+            while (byteBuffer.hasRemaining())
+            {
+                channel.write(byteBuffer);
+            }
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 
 

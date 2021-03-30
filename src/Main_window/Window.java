@@ -1,5 +1,6 @@
 package Main_window;
 
+import Interface.IComponent;
 import Main_window.Component.Base_button_card;
 import Main_window.Data.User_group;
 import Main_window.Pop_window.Add_friend_window;
@@ -17,7 +18,10 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.TimerTask;
+import java.util.Timer;
 
 public class Window extends JFrame
 {
@@ -25,6 +29,7 @@ public class Window extends JFrame
     private Right_panel right_panel;
     private Scroll_panel scroll_panel;
     public static Window current;
+    private ArrayList<IComponent> after_initialize;
 
 
     public Window(String title)
@@ -33,8 +38,10 @@ public class Window extends JFrame
         try
         {
             current = this;
+            after_initialize = new ArrayList<>();
             set_menubar();
             set_panel();
+
 
             setMinimumSize(new Dimension(800, 600));
             setPreferredSize(new Dimension(800, 600));
@@ -76,6 +83,26 @@ public class Window extends JFrame
 
             }
         });
+        Timer timer = new Timer();
+        TimerTask task = new TimerTask()
+        {
+            @Override
+            public void run()
+            {
+                for(IComponent component : after_initialize)
+                {
+                    try
+                    {
+                        component.after_initialize();
+                    }
+                    catch (Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        };
+        timer.schedule(task, 1000);
     }
 
     private void set_panel()
@@ -186,9 +213,29 @@ public class Window extends JFrame
         menu_friend.add(friend_list);
         menu_friend.add(button_add_friend);
         menu_friend.add(button_create_group);
+
+        JMenu menu_debug = new JMenu("调试");
+        JMenuItem item_add_message = new JMenuItem("发消息");
+        item_add_message.setActionCommand("add_message");
+        item_add_message.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent)
+            {
+                Window.current.getRight_panel().debug_write_message();
+            }
+        });
+        menu_debug.add(item_add_message);
+
         menuBar.add(menu_setting);
         menuBar.add(menu_friend);
+        menuBar.add(menu_debug);
 
         this.setJMenuBar(menuBar);
+    }
+
+    public void register_after_initialize(IComponent component)
+    {
+        after_initialize.add(component);
     }
 }

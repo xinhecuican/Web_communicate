@@ -2,6 +2,7 @@ package Server;
 
 import Main_window.Data.Login_data;
 import Main_window.Data.Send_data;
+import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Tools;
 import Server.Data.All_users;
 import Server.Data.Group_message;
@@ -197,11 +198,7 @@ public class Server_main
         {
             try
             {
-                Socket socket = new Socket(user.host, user.port);
-                OutputStream outputStream = socket.getOutputStream();
-                ObjectOutputStream out = new ObjectOutputStream(outputStream);
-                out.writeObject(data);
-                socket.close();
+                Server_handle_thread.send_data(user.host, user.port, data);
             }
             catch (IOException e)
             {

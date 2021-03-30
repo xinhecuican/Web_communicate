@@ -1,5 +1,7 @@
 package Main_window.Separate_panel;
 
+import Common.ImgUtils;
+import Interface.IComponent;
 import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
 import Main_window.Main;
@@ -13,7 +15,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.regex.Pattern;
 
-public class Right_panel extends JPanel
+public class Right_panel extends JPanel implements IComponent
 {
     JTextPane message_inner_panel;
     JTextArea message_area;
@@ -25,12 +27,15 @@ public class Right_panel extends JPanel
     SimpleAttributeSet other_set;
     SimpleAttributeSet user_set;
     SimpleAttributeSet user_set_name;
+    SimpleAttributeSet time_set;
     private static Pattern regex = Pattern.compile("\\s*");//匹配若干个空格
 
     public Right_panel()
     {
+        Window.current.register_after_initialize(this);
         message_inner_panel = new JTextPane();
         message_inner_panel.setEditable(false);
+        message_inner_panel.setContentType("text/html");
         message_panel = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         message_toolbar = new JToolBar();
         enter_panel = new JPanel();
@@ -77,12 +82,20 @@ public class Right_panel extends JPanel
 
     public void add_piece_message(message_rightdata data)
     {
-
-        Document doc = message_inner_panel.getStyledDocument();
+        StyledDocument doc = message_inner_panel.getStyledDocument();
         try
         {
-            doc.insertString(doc.getLength(), data.message_sender_name + "   " + data.time+"\n", user_set_name);
-            doc.insertString(doc.getLength(), data.message+'\n', user_set);
+            doc.insertString(doc.getLength(), data.time + "\n", time_set);
+            if(data.message_sender_name.equals(Main.main_user.name))
+            {
+                doc.insertString(doc.getLength(), data.message_sender_name + "\n", user_set_name);
+                doc.insertString(doc.getLength(), data.message + '\n', user_set);
+            }
+            else
+            {
+                doc.insertString(doc.getLength(), data.message_sender_name + "   " + data.time + "\n", other_set_name);
+                doc.insertString(doc.getLength(), data.message + '\n', other_set);
+            }
             message_inner_panel.updateUI();
 
         }
@@ -99,6 +112,7 @@ public class Right_panel extends JPanel
         //GridBagLayout layout = new GridBagLayout();
         enter_panel.setLayout(layout);
         enter_area = new JTextArea("", 10, 20);
+        enter_area.setLineWrap(true);
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.BOTH;
         constraints.weightx = 1;
@@ -115,23 +129,37 @@ public class Right_panel extends JPanel
         user_set = new SimpleAttributeSet();
         other_set_name = new SimpleAttributeSet();
         user_set_name = new SimpleAttributeSet();
+        time_set = new SimpleAttributeSet();
+        StyleConstants.setFontSize(time_set, 10);
+        StyleConstants.setForeground(time_set, Color.GRAY);
+        StyleConstants.setAlignment(time_set, StyleConstants.ALIGN_CENTER);
+        StyleConstants.setSpaceBelow(time_set,1.5f);
+        StyleConstants.setSpaceAbove(time_set, 2f);
+
         StyleConstants.setAlignment(other_set, StyleConstants.ALIGN_LEFT);
         StyleConstants.setLineSpacing(other_set, 1);
         StyleConstants.setFontSize(other_set, 15);
         StyleConstants.setFontFamily(other_set, "Arial Black");
+
         StyleConstants.setAlignment(user_set, StyleConstants.ALIGN_RIGHT);
         StyleConstants.setLineSpacing(user_set, 1);
         StyleConstants.setFontSize(user_set, 15);
         StyleConstants.setFontFamily(user_set, "Arial Black");
-        StyleConstants.setLeftIndent(user_set, (float)message_panel.getWidth() / 2);
+        StyleConstants.ParagraphConstants.setBackground(user_set,new Color(111, 233, 250));
+
+        //StyleConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 2);
+
         StyleConstants.setBold(other_set_name, true);
-        StyleConstants.setFontSize(other_set_name, 20);
+        StyleConstants.setFontSize(other_set_name, 18);
         StyleConstants.setLineSpacing(other_set_name, (float) 1.5);
         StyleConstants.setAlignment(other_set_name, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setForeground(other_set_name, new Color(59, 250, 82));
+
         StyleConstants.setBold(user_set_name, true);
         StyleConstants.setFontSize(user_set_name, 20);
         StyleConstants.setLineSpacing(user_set_name, (float) 1.5);
-        StyleConstants.setAlignment(user_set_name, StyleConstants.ALIGN_LEFT);
+        StyleConstants.setAlignment(user_set_name, StyleConstants.ALIGN_RIGHT);
+        StyleConstants.setForeground(user_set_name, new Color(135, 205, 250));
 
     }
 
@@ -189,5 +217,37 @@ public class Right_panel extends JPanel
                 enter_area.setText("");
             }
         });
+    }
+
+    public void debug_write_message()
+    {
+        String text = "test_message 哈哈哈134234更多【商店点;j;wejr；sdf我就跑额";
+        for(int i=0; i<100; i++)
+        {
+            if (!(regex.matcher(text).matches() || text.equals(""))
+                    && Scroll_panel.select_button != null)//不是空格并且选中一个选项卡
+            {
+                add_piece_message(new message_rightdata(Window.get_time(), text, Main.main_user.name));
+                boolean is_user = Main.main_user.add_message(
+                        Scroll_panel.select_button.id,
+                        new message_rightdata(Window.get_time(), text, Main.main_user.name)
+                );
+                Send_data send_data = new Send_data(
+                        Scroll_panel.select_button.id,
+                        new message_rightdata(Window.get_time(), text, Main.main_user.name)
+                );
+                send_data.data_type = is_user ?
+                        Send_data.Data_type.One_piece_message : Send_data.Data_type.Piece_group_message;
+                Main.main_user.send_message(send_data);
+                //给对方的，所以is_user = false
+            }
+        }
+    }
+
+    @Override
+    public void after_initialize()
+    {
+        StyleConstants.ParagraphConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 4);
+        StyleConstants.setRightIndent(other_set, (float)message_inner_panel.getWidth() / 4);
     }
 }

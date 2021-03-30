@@ -5,12 +5,21 @@ import Main_window.Data.Send_data;
 import Server.Data.Group_message;
 import Server.Data.Login_back_data;
 import Server.Data.Search_back_data;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
+import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.*;
 
 /**
  * @author: 李子麟
@@ -18,21 +27,32 @@ import java.util.Objects;
  **/
 public class Server_handle_thread extends Thread
 {
-    private Socket socket;
+    private SelectionKey key;
     private int mode;
-    public Server_handle_thread(Socket socket, int mode)
+    ByteBuf buf ;
+    public Server_handle_thread(SelectionKey key, int mode)
     {
-        this.socket = socket;
+        this.key = key;
         this.mode = mode;
+        buf = Unpooled.buffer(256);
     }
 
     public void run()
     {
-        ObjectInputStream input = null;
-        try
+        ObjectDecoderInputStream input = null;
+        SocketChannel channel = (SocketChannel)key.channel();
+        ByteBuffer buffer=  ByteBuffer.allocate(1024);
+        try//读取数据
         {
-            InputStream inputStream = socket.getInputStream();
-            input = new ObjectInputStream(inputStream);
+            while (channel.read(buffer) > 0)
+            {
+                buffer.flip();
+                buf.writeBytes(buffer);
+                buffer.clear();
+            }
+            System.out.println(buf.writerIndex());
+            ByteBufInputStream inputStream = new ByteBufInputStream(buf);
+            input = new ObjectDecoderInputStream(inputStream);
         }
         catch (IOException e)
         {
@@ -45,6 +65,7 @@ public class Server_handle_thread extends Thread
                 {
                     assert input != null;
                     Login_data data = (Login_data)input.readObject();
+                    buf.clear();
                     if(data.id == 10)//申请获得好友信息
                     {
                         //返回id为0，并且is_error = true
@@ -60,9 +81,7 @@ public class Server_handle_thread extends Thread
                             send_data.searched_user = Objects.requireNonNull(Server_main.search_user(integer)).user_name;
                             back_data.storage_data.add(send_data);
                         }
-                        ObjectOutputStream out = decorate_stream(socket.getOutputStream());
-                        out.writeObject(back_data);
-                        out.flush();
+                        write_back(channel, back_data);
                         break;
                     }
                     else if(data.id == 11)//下线
@@ -74,13 +93,11 @@ public class Server_handle_thread extends Thread
 
                     //登录及注册
                     int id = Server_main.Login(data);//包含了注册的情况，如果是注册，返回注册id
-                    ObjectOutputStream out = decorate_stream(socket.getOutputStream());
                     if(id == -1) //出错
                     {
                         Login_back_data back_data = new  Login_back_data(true, null);
                         back_data.id = 1;
-                        out.writeObject(back_data);
-                        out.flush();
+                        write_back(channel, data);
                     }
                     else if(id == 0)//正常登录
                     {
@@ -93,8 +110,7 @@ public class Server_handle_thread extends Thread
                         }
                         login_back_data.id = 0;
                         login_back_data.name = user_message.user_name;
-                        out.writeObject(login_back_data);
-                        out.flush();
+                        write_back(channel, data);
                     }
                     else//注册
                     {
@@ -102,8 +118,7 @@ public class Server_handle_thread extends Thread
                         Login_back_data login_back_data = new Login_back_data(false, null);
                         login_back_data.name = data.name;
                         login_back_data.id = id;
-                        out.writeObject(login_back_data);
-                        out.flush();
+                        //write_back(channel, data);
                     }
                     break;
                 }
@@ -130,16 +145,13 @@ public class Server_handle_thread extends Thread
                                 data.data_type = Send_data.Data_type.Request_add_fail;
                                 data.searched_user = Objects.requireNonNull(Server_main.search_user(data.send_to_id)).user_name;
                                 User_message message = Server_main.search_user(data.my_id);
-                                Socket socket = new Socket(message.host, message.port);
-                                ObjectOutputStream out = decorate_stream(socket.getOutputStream());
-                                out.writeObject(data);
-                                socket.close();
+                                send_data(message.host, message.port, data);
+
                             }
                             break;
                         case Search_friend:
                             List<User_message> send_data = Server_main.search_user(data.searched_user);
                             List<Group_message> group_data = Server_main.search_group(data.searched_user);
-                            ObjectOutputStream out = decorate_stream(socket.getOutputStream());
                             if (send_data.size() > 0 || group_data.size() > 0)
                             {
                                 Search_back_data search_back_data = new Search_back_data();
@@ -151,7 +163,7 @@ public class Server_handle_thread extends Thread
                                 {
                                     search_back_data.add(message.getGroup_id(), message.group_name, true);
                                 }
-                                out.writeObject(search_back_data);
+                                write_back(channel, search_back_data);
                             }
                             else//没有搜索到
                             {
@@ -165,11 +177,8 @@ public class Server_handle_thread extends Thread
                         case Create_group_message:
                             int id = Server_main.create_group(data);
                             User_message main_user = Server_main.search_user(data.my_id);
-                            Socket socket = new Socket(main_user.host, main_user.port);
-                            ObjectOutputStream outputStream = decorate_stream(socket.getOutputStream());
                             data.send_to_id = id;
-                            outputStream.writeObject(data);
-                            socket.close();
+                            send_data(main_user.host, main_user.port, data);
                             break;
                         case Request_add_group:
                             Server_main.join_group(data.send_to_id, data);
@@ -189,8 +198,7 @@ public class Server_handle_thread extends Thread
         }
         try
         {
-            socket.close();
-
+            channel.close();
         }
         catch (IOException e)
         {
@@ -198,18 +206,30 @@ public class Server_handle_thread extends Thread
         }
     }
 
-    public static ObjectOutputStream decorate_stream(OutputStream outputStream)
+    private void write_back(SocketChannel channel, Object data) throws IOException
     {
-        try
+        buf.clear();
+        ByteBufOutputStream outputStream = new ByteBufOutputStream(buf);
+        ObjectEncoderOutputStream out = new ObjectEncoderOutputStream(outputStream);
+        out.writeObject(data);
+        channel.write(buf.nioBuffer());
+    }
+
+    public static void send_data(String host, int port, Object data) throws IOException
+    {
+        SocketChannel channel = SocketChannel.open();
+        channel.configureBlocking(false);
+        channel.connect(new InetSocketAddress(host, port));
+        while(!channel.finishConnect());
+        ByteBuf buf = Unpooled.buffer(256);
+        ByteBufOutputStream outputStream = new ByteBufOutputStream(buf);
+        ObjectEncoderOutputStream out = new ObjectEncoderOutputStream(outputStream);
+        out.writeObject(data);
+        ByteBuffer byteBuffer = buf.nioBuffer();
+        while (byteBuffer.hasRemaining())
         {
-            ObjectOutputStream outputStream1 = new ObjectOutputStream(outputStream);
-            outputStream1.flush();
-            return outputStream1;
+            channel.write(byteBuffer);
         }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-            return null;
-        }
+        channel.close();
     }
 }

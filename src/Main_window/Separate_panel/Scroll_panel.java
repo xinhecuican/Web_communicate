@@ -5,11 +5,17 @@ import Main_window.Component.Base_button_card;
 import Main_window.Data.Message_data;
 import Main_window.Data.User_group;
 import Main_window.Listener.Write_message_listener;
+import Main_window.Main;
+import Main_window.Pop_window.Add_friend_window;
 import Main_window.User_Server.User_friend;
 
 import javax.swing.*;
+import javax.swing.plaf.basic.BasicSplitPaneUI;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 
 import static Main_window.Component.Base_button_card.set_message;
@@ -26,28 +32,37 @@ public class Scroll_panel extends JPanel
     public static Base_button_card select_button;
     private GridBagLayout layout;
     private GridBagConstraints constraints;
+    private JPanel scroll_out_panel;
+    private static final Color SELECT_COLOR = new Color(160, 160, 160, 100);
     public Scroll_panel()
     {
-
         super();
+        setBackground(new Color(255, 255, 255));
         setLayout(new BorderLayout());
-        scrollPane = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll_out_panel = new JPanel();
+        scroll_out_panel.setOpaque(false);
+        scroll_out_panel.setLayout(new BorderLayout());
+        scrollPane = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scrollPane.setOpaque(false);
+
         data = new ArrayList<Base_button_card>();
         setAutoscrolls(true);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scroll_inner_panel = new JPanel();
+        scroll_inner_panel.setOpaque(false);
         layout = new GridBagLayout();
         scroll_inner_panel.setLayout(layout);
         constraints = new GridBagConstraints();
         constraints.gridwidth = 0;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weightx = 1;
-        constraints.anchor = GridBagConstraints.PAGE_START;
-        constraints.ipady = 60;
+        //constraints.anchor = GridBagConstraints.PAGE_START;
+        constraints.ipady = 50;
         //scroll_inner_panel.setLayout(new BoxLayout(scroll_inner_panel, BoxLayout.Y_AXIS));
         //scroll_inner_panel.setPreferredSize(new Dimension(Main.LEFT_PANEL_WIDTH, 400));
         scrollPane.setViewportView(scroll_inner_panel);
-        add(scrollPane, BorderLayout.CENTER);
+        scroll_out_panel.add(scrollPane, BorderLayout.PAGE_START);
+        add(scroll_out_panel, BorderLayout.CENTER);
 
         /*JButton search_button = new JButton();
         search_button.setToolTipText("搜索");
@@ -63,6 +78,37 @@ public class Scroll_panel extends JPanel
                 scroll_inner_panel.revalidate();
             }
         });*/
+        addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseReleased(MouseEvent e)
+            {
+                if (e.isMetaDown()) {
+                    showPopupMenu(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        });
+    }
+
+    private void showPopupMenu(Component component, int x, int y)
+    {
+        JPopupMenu popupMenu = new JPopupMenu();
+        JMenuItem copyMenuItem = new JMenuItem("移除");
+        popupMenu.add(copyMenuItem);
+        copyMenuItem.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent)
+            {
+                Component component1;
+                if((component1 = scroll_inner_panel.getComponentAt(x, y)) != null)
+                {
+                    scroll_inner_panel.remove(component1);
+                }
+
+            }
+        });
+        popupMenu.show(component, x, y);
     }
 
     public void add_search_panel(JTextField textField, JButton button)
@@ -83,6 +129,7 @@ public class Scroll_panel extends JPanel
                 /**
                  * TODO: 在scroll_inner_panel中切换到对应位置
                  */
+                scroll_inner_panel.getComponentZOrder(base_button_card);
                 return true;
             }
         }
@@ -101,6 +148,7 @@ public class Scroll_panel extends JPanel
         set_message(button);
         scroll_inner_panel.add(button, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+        updateUI();
     }
 
     public void add_card(User_group group)
@@ -115,30 +163,21 @@ public class Scroll_panel extends JPanel
         set_message(button);
         scroll_inner_panel.add(button, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
-    }
-
-
-
-    public void add_card(int id, String name, Message_data data, ActionListener listener)
-    {
-        Base_button_card button = new Base_button_card(name, data, listener);
-        button.id = id;
-        //button.setSize(200, 40);
-        scroll_inner_panel.add(button, constraints);
-        scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
-        //button.setBounds(new Rectangle(10, 10));
+        updateUI();
     }
 
     public void add_component(JComponent component)
     {
         scroll_inner_panel.add(component, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+        updateUI();
     }
 
     public void add_card(Friend_confirm_card card)
     {
         scroll_inner_panel.add(card, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
+        updateUI();
     }
 
     public void remove_all_cards()
@@ -146,9 +185,22 @@ public class Scroll_panel extends JPanel
         scroll_inner_panel.removeAll();
     }
 
+    private static Color last_time_background;
+
     public static void select_button_change(Base_button_card new_button)
     {
+        System.out.println(1);
+        if(select_button == null)
+        {
+            last_time_background = new Color(255, 255, 255);
+        }
+        else
+        {
+            select_button.setBackground(last_time_background);
+            last_time_background = new_button.getBackground();
+        }
         select_button = new_button;
+        select_button.setBackground(SELECT_COLOR);
     }
 
     public ArrayList<Base_button_card> getData()

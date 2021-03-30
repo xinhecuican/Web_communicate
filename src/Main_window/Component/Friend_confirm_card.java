@@ -31,6 +31,7 @@ public class Friend_confirm_card extends JPanel
      */
     public Friend_confirm_card(Friend_confirm_data confirm_data)
     {
+        current = this;
         this.addMouseMotionListener(new MouseAdapter()
         {
             @Override
