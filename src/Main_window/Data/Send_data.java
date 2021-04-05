@@ -8,7 +8,7 @@ import java.io.Serializable;
  * @author: 李子麟
  * @date: 2021/3/18 13:00
  **/
-public class Send_data implements Serializable
+public class Send_data implements Serializable, Cloneable
 {
     /**
      * id = (因为id大于10000）

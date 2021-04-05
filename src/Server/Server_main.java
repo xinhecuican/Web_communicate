@@ -5,6 +5,7 @@ import Main_window.Data.Send_data;
 import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Tools;
 import Server.Data.All_users;
+import Server.Data.File_info;
 import Server.Data.Group_message;
 
 import java.io.*;
@@ -13,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static Main_window.User_Server.User.file_root_path;
 
 /**
  * @author: 李子麟
@@ -23,6 +23,7 @@ public class Server_main
 {
     private static All_users all_users;
     public static User_message heart_test_user;
+    public static final String Server_root_path = "Server Data/";
 
     public static int create_group(Send_data data)
     {
@@ -36,14 +37,18 @@ public class Server_main
      */
     public static int Login(Login_data data)
     {
-        if(data.is_regesiter)
+        if(data.type == Login_data.Login_type.Register)
         {
             int id = register_new_user(data);
             return id;
         }
         User_message user;
-        if((user = search_user(data.id)) != null && user.compare(get_password(data.password)) && !user.is_online)
+        if((user = search_user(data.id)) != null && user.compare(get_password(data.password)))
         {
+            if(user.is_online)
+            {
+                return -2;
+            }
             user.is_online = true;
             user.host = data.host;
             user.port = data.port;
@@ -196,14 +201,25 @@ public class Server_main
         }
         else
         {
-            try
-            {
-                Server_handle_thread.send_data(user.host, user.port, data);
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
+            Server_handle.send_data(user.host, user.port, data);
+        }
+        return true;
+    }
+
+    public static boolean add_message(int id, File_info file)
+    {
+        User_message user;
+        if((user = search_user(id)) == null)
+        {
+            return false;
+        }
+        if(!user.is_online)
+        {
+            return false;
+        }
+        else
+        {
+            Server_handle.send_file(user.host, user.port, file);
         }
         return true;
     }
@@ -246,6 +262,7 @@ public class Server_main
     {
         User_message message = search_user(friend_id);
         assert message != null;
+
         binary_add(my_id, message.friend_id);
         binary_add(friend_id, Objects.requireNonNull(search_user(my_id)).friend_id);
         //message.friend_id.add(my_id);
@@ -296,7 +313,7 @@ public class Server_main
     public static void main(String[] args)
     {
         all_users = new All_users();
-        File file = new File(file_root_path + "Server Data");
+        File file = new File(Server_root_path + "Server Data");
         if(file.exists())
         {
             ObjectInputStream input = null;
@@ -314,9 +331,14 @@ public class Server_main
 
         Runtime.getRuntime().addShutdownHook(new Thread(()->{//钩子，程序结束前调用
             //将数据写回
-            File file2 = new File("User Data");
+            for(User_message message : all_users.all_users)
+            {
+                message.is_online = false;
+            }
+            File file2 = new File("Server Data");
             file2.mkdir();
-            File data_file = new File(file_root_path + "Server Data");
+
+            File data_file = new File(Server_root_path + "Server Data");
             FileOutputStream fileOutputStream = null;
             try
             {

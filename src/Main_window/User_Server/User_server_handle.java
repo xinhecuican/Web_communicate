@@ -1,6 +1,9 @@
 package Main_window.User_Server;
+
+import Main_window.Component.Friend_confirm_card;
 import Main_window.Data.Friend_confirm_data;
 import Main_window.Data.Send_data;
+import Main_window.Data.message_rightdata;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
 import Main_window.Pop_window.Voice_Window;
@@ -12,55 +15,55 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
 import javax.swing.*;
-import java.io.*;
-import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
+import java.io.File;
+import java.io.RandomAccessFile;
 
 /**
  * @author: 李子麟
- * @date: 2021/3/18 12:32
+ * @date: 2021/3/31 11:34
  **/
-public class User_Server_handle_thread extends Thread
+public class User_server_handle extends ChannelInboundHandlerAdapter
 {
-    private SelectionKey key;
-    private ByteBuf buf;
-    public User_Server_handle_thread(SelectionKey socket)
-    {
-        this.key = key;
-        buf = Unpooled.buffer(256);
+    public void exceptionCaught(
+            ChannelHandlerContext ctx,
+            Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
     }
+
     @Override
-    public void run()
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
     {
-        super.run();
-        ObjectInputStream input = null;
-        Send_data input_data = new Send_data();
-        SocketChannel channel = (SocketChannel)key.channel();
-        ByteBuffer buffer=  ByteBuffer.allocate(1024);
-        try//读取数据
+        if(msg instanceof Send_data)
         {
-            while (true)
+            Send_data input_data = (Send_data) msg;
+            handle_message(input_data);
+        }
+        else if(msg instanceof File_info)
+        {
+            File_info file = (File_info)msg;
+            byte[] bytes = file.bytes;
+            String file_path = User.file_root_path + String.valueOf(file.send_to_id)  + "/Data/" + file.file_name;
+            if(file.end_pos == -1)
             {
-                buffer.flip();
-                if (!(channel.read(buffer) > 0))
-                    break;
-                buf.writeBytes(buffer);
-                buffer.clear();
-
+                file.total_path = file_path;
+                User_friend friend = Main.main_user.find_friend(file.my_id);
+                friend.set_file_finished(file);
+                ctx.close();
+                return;
             }
-            ByteBufInputStream inputStream = new ByteBufInputStream(buf);
-            input = new ObjectInputStream(inputStream);
-            input_data = (Send_data)input.readObject();
-        }
-        catch (IOException | ClassNotFoundException e)
-        {
-            e.printStackTrace();
+            File download_file_directory = new File(User.file_root_path + String.valueOf(file.send_to_id) + "/" + "Data");
+            download_file_directory.mkdirs();
+            RandomAccessFile io = new RandomAccessFile(file_path, "rw");
+            io.seek(file.start_pos);
+            Main.main_user.find_friend(file.my_id).communicate_data.
+                    find_file(file.time).On_len_change(file.start_pos);
+            io.write(bytes);
+            io.close();
+            ctx.writeAndFlush(file.start_pos + file.end_pos);
+
         }
 
-        handle_message(input_data);
-        key.cancel();
     }
 
     public static void handle_message(Send_data input_data)

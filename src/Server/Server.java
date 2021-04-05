@@ -1,13 +1,19 @@
 package Server;
 
+import Common.UserDecoder;
+import Common.UserEncoder;
 import Main_window.Data.Login_data;
-import Main_window.User_Server.test_thread;
 import Server.Data.Login_back_data;
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
@@ -26,7 +32,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -41,8 +46,9 @@ public class Server extends Thread
     public static int[] port = new int[]{10087, 10088, 10089};
     private int mode;
     //private ExecutorService executor;
-    private EventLoopGroup boss_group = new NioEventLoopGroup();
-    private EventLoopGroup worker_group = new NioEventLoopGroup();
+    private EventLoopGroup boss_group ;
+    private EventLoopGroup worker_group;
+    private EventExecutorGroup business_group ;
 
 
     /**
@@ -52,6 +58,9 @@ public class Server extends Thread
     public Server(int mode)
     {
         this.mode = mode;
+        boss_group = new NioEventLoopGroup();
+        worker_group = new NioEventLoopGroup();
+        business_group = new DefaultEventExecutorGroup(Runtime.getRuntime().availableProcessors()*2);
         //executor = new ThreadPoolExecutor(12, 20, 300,
                 //TimeUnit.SECONDS, new ArrayBlockingQueue<>(10000));
     }
@@ -103,11 +112,6 @@ public class Server extends Thread
                 boss_group.shutdownGracefully();
             }
 
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
     }
 
 }
