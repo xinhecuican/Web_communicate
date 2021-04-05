@@ -3,10 +3,13 @@ import Main_window.Data.Friend_confirm_data;
 import Main_window.Data.Send_data;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
-import Main_window.Component.Friend_confirm_card;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.Unpooled;
+import Main_window.Pop_window.Voice_Window;
+import Main_window.Window;
+import Server.Data.File_info;
+import Server.Server_main;
+import Server.User_message;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 
 import javax.swing.*;
 import java.io.*;
@@ -108,6 +111,40 @@ public class User_Server_handle_thread extends Thread
             case Piece_group_message://send_to_id是groupid
                 Main.main_user.add_group_message(input_data);
                 break;
+            case File_arrive:
+                Main.main_user.add_file_message(input_data);
+                break;
+            case Request_voice_fail:
+                if(Voice_Window.is_active())
+                    Voice_Window.current.set_info("用户不在线");
+                break;
+            case Request_voice_call:
+                new Voice_Window(Window.current,false, input_data.my_id, input_data.send_to_id);
+                break;
+            case Cancel_voice_call:
+                if(Voice_Window.is_active())
+                {
+                    Voice_Window.current.before_close(true);
+                    Voice_Window.current.dispose();
+                }
+                input_data.data = new message_rightdata(Window.get_time() + " 对方取消了连接", ""
+                        , "");
+                Main.main_user.add_message(input_data);
+                break;
+            case Accept_voice_call:
+                if(Voice_Window.is_active())
+                {
+                    Voice_Window.current.receive_accept_data(input_data);
+                }
+                else
+                {
+                    Send_data data = new Send_data();
+                    data.send_to_id = input_data.my_id;
+                    data.data_type = Send_data.Data_type.Cancel_voice_call;
+                    Main.main_user.send_message(data);
+                }
+                break;
+
 
         }
 

@@ -277,6 +277,22 @@ public class Server_main
         list.add(high+1, insert_id);
     }
 
+    public static void handle_heart_beat()
+    {
+        for(User_message user_message : all_users.all_users)
+        {
+            if(!user_message.heart_beat_test)
+            {
+                user_message.is_online = false;
+            }
+            else
+            {
+                user_message.heart_beat_test = false;
+                user_message.is_online = true;
+            }
+        }
+    }
+
     public static void main(String[] args)
     {
         all_users = new All_users();

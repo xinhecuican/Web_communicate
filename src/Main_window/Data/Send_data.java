@@ -46,10 +46,19 @@ public class Send_data implements Serializable
         Confirm_add_friend,
         Request_add_fail,
         Search_fail,
+
         One_piece_message,//一条朋友之间的消息
         Create_group_message,
         Add_group_successful,
         Request_add_group,
-        Piece_group_message//一条群发消息
+        Piece_group_message,//一条群发消息
+
+        File_arrive,
+        Request_file,
+
+        Request_voice_call,
+        Request_voice_fail,
+        Cancel_voice_call,
+        Accept_voice_call
     }
 }

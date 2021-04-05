@@ -20,7 +20,6 @@ public class Write_message_listener implements ActionListener
     public void actionPerformed(ActionEvent actionEvent)
     {
         Scroll_panel.select_button_change((Base_button_card)actionEvent.getSource());
-        set_message(Scroll_panel.select_button);
     }
 
 

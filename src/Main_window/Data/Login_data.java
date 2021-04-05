@@ -12,14 +12,23 @@ public class Login_data implements Serializable
     public int port;
     public int id;
     public String password;
-    public boolean is_regesiter;
     public String name;
+    public Login_type type;
     public Login_data(String host, int port, int id, String password, String name)
     {
         this.host = host;
         this.port = port;
         this.id = id;
         this.password = password;
-        is_regesiter = false;
+
+    }
+
+    public enum Login_type
+    {
+        None,
+        Request_friend_message,
+        Offline,
+        Login,
+        Register
     }
 }

@@ -17,7 +17,7 @@ public class All_users implements Serializable
 {
     public List<User_message> all_users;
     public List<Group_message> all_groups;
-    public int max_number;
+    private int max_number;
     public All_users()
     {
         all_users = new ArrayList<User_message>();
@@ -53,5 +53,10 @@ public class All_users implements Serializable
         }
         String s = new String(a);
         return s;
+    }
+
+    public int getMax_number()
+    {
+        return max_number - 10000;
     }
 }

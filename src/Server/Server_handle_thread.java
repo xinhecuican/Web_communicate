@@ -1,4 +1,4 @@
-package Server;
+/*package Server;
 
 import Main_window.Data.Login_data;
 import Main_window.Data.Send_data;
@@ -19,12 +19,13 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.*;*/
 
 /**
  * @author: 李子麟
  * @date: 2021/3/19 21:46
  **/
+/*
 public class Server_handle_thread extends Thread
 {
     private SelectionKey key;
@@ -233,3 +234,4 @@ public class Server_handle_thread extends Thread
         channel.close();
     }
 }
+*/

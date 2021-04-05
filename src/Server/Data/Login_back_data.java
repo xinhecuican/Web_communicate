@@ -10,13 +10,24 @@ import java.util.List;
 public class Login_back_data implements Serializable
 {
     public int id;
-    public boolean is_error;
     public String name;
     public List<Send_data> storage_data;
-    public Login_back_data(boolean is_error, List<Send_data> storage_data)
+    public Login_type type;
+    public Login_back_data(Login_type type, List<Send_data> storage_data)
     {
-        this.is_error = is_error;
+        this.type = type;
         this.storage_data = storage_data;
         id = 0;
+    }
+
+    public enum Login_type
+    {
+        None,
+        Friend_info,
+        Error,
+        Login,
+        Register,
+        Login_And_Heart,
+
     }
 }

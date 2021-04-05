@@ -1,14 +1,28 @@
 package Main_window.User_Server;
 
-import Server.Server_handle_thread;
 
+
+import Common.UserDecoder;
+import Common.UserEncoder;
+import Server.Server;
+import Server.Server_handle;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
+import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.util.concurrent.EventExecutorGroup;
+
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -22,50 +36,61 @@ import java.util.concurrent.TimeUnit;
 public class User_server extends Thread
 {
     public static int receive_port;
-    private ExecutorService executor;
+    private EventLoopGroup boss_group ;
+    private EventLoopGroup worker_group;
+    private EventExecutorGroup business_group ;
 
     public User_server()
     {
-        executor = new ThreadPoolExecutor(12, 20, 300,
-                TimeUnit.SECONDS, new ArrayBlockingQueue<>(1024));
+
+        try
+        {
+            ServerSocket serverSocket = new ServerSocket(0);
+            receive_port = serverSocket.getLocalPort();
+            serverSocket.close();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        boss_group = new NioEventLoopGroup();
+        worker_group = new NioEventLoopGroup();
+        business_group = new DefaultEventExecutorGroup(Runtime.getRuntime().availableProcessors()*2);
     }
     @Override
     public void run()
     {
-        super.run();
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(boss_group, worker_group);
+        b.channel(NioServerSocketChannel.class);
+        b.option(ChannelOption.SO_BACKLOG, 2048);
+        b.childHandler(new ChannelInitializer<io.netty.channel.socket.SocketChannel>()
+        {
+            @Override
+            protected void initChannel(SocketChannel socketChannel) throws Exception
+            {
+                ChannelPipeline pipeline = socketChannel.pipeline();
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(
+                        Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+                pipeline.addLast(business_group, new User_server_handle());
+            }
+        });
         try
         {
-            ServerSocketChannel socketChannel = ServerSocketChannel.open();
-            socketChannel.configureBlocking(false);
-            socketChannel.bind(new InetSocketAddress(0));
-            Selector selector = Selector.open();
-            SelectionKey register = socketChannel.register(selector, SelectionKey.OP_ACCEPT);
-
-            while(selector.select() > 0)
-            {
-                Iterator<SelectionKey> selectionKeys = selector.selectedKeys().iterator();
-                while(selectionKeys.hasNext())
-                {
-                    SelectionKey key = selectionKeys.next();
-                    selectionKeys.remove();
-                    if(key.isAcceptable())
-                    {
-                        ServerSocketChannel serverSocketChannel = (ServerSocketChannel)key.channel();
-                        SocketChannel clientChannel = serverSocketChannel.accept();
-                        clientChannel.configureBlocking(false);
-                        clientChannel.register(key.selector(), SelectionKey.OP_READ);
-                    }
-                    else if(key.isReadable())
-                    {
-                        executor.execute(new User_Server_handle_thread(key));
-                    }
-                }
-            }
-
+            ChannelFuture f = b.bind(receive_port).sync();
+            f.channel().closeFuture().sync();
         }
-        catch (Exception e)
+        catch (InterruptedException e)
         {
             e.printStackTrace();
+        }
+        finally
+        {
+            worker_group.shutdownGracefully();
+            boss_group.shutdownGracefully();
         }
     }
 

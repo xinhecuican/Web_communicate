@@ -2,33 +2,45 @@ package Main_window.Separate_panel;
 
 import Common.ImgUtils;
 import Interface.IComponent;
+import Main_window.Component.Background_message_panel;
+import Main_window.Component.File_send_panel;
 import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
 import Main_window.Main;
+import Main_window.Pop_window.Voice_Window;
 import Main_window.Window;
+import Server.Data.File_info;
 
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.filechooser.FileSystemView;
 import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 public class Right_panel extends JPanel implements IComponent
 {
     JTextPane message_inner_panel;
     JTextArea message_area;
-    private JScrollPane message_panel ;
+    private Background_message_panel message_panel ;
     private JToolBar message_toolbar ;
-    private JPanel enter_panel;
-    private JTextArea enter_area;
+    private JScrollPane enter_panel;
+    private JTextPane enter_inner_panel;
     SimpleAttributeSet other_set_name;
     SimpleAttributeSet other_set;
     SimpleAttributeSet user_set;
     SimpleAttributeSet user_set_name;
     SimpleAttributeSet time_set;
+    SimpleAttributeSet icon_set;
+    SimpleAttributeSet file_set;
     private static Pattern regex = Pattern.compile("\\s*");//匹配若干个空格
+    private ArrayList<File_info> ready_to_send_file;
+    private boolean is_sending_files;
 
     public Right_panel()
     {
@@ -36,11 +48,14 @@ public class Right_panel extends JPanel implements IComponent
         message_inner_panel = new JTextPane();
         message_inner_panel.setEditable(false);
         message_inner_panel.setContentType("text/html");
-        message_panel = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        message_panel = new Background_message_panel(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         message_toolbar = new JToolBar();
-        enter_panel = new JPanel();
+        enter_panel = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        enter_inner_panel = new JTextPane();
+        ready_to_send_file = new ArrayList<>();
         message_area = new JTextArea(20, 20);
         message_area.setLineWrap(true);
+        is_sending_files = false;
 
         GridBagLayout layout = new GridBagLayout();
         GridBagConstraints constraints = new GridBagConstraints();
@@ -59,6 +74,7 @@ public class Right_panel extends JPanel implements IComponent
         constraints.gridheight = 1;
         layout.setConstraints(message_toolbar, constraints);
         constraints.gridheight = 4;
+        constraints.ipady = 200;
         layout.setConstraints(enter_panel, constraints);
         setLayout(layout);
 
@@ -80,11 +96,12 @@ public class Right_panel extends JPanel implements IComponent
         message_inner_panel.setText("");
     }
 
-    public void add_piece_message(message_rightdata data)
+    public synchronized void add_piece_message(message_rightdata data)
     {
         StyledDocument doc = message_inner_panel.getStyledDocument();
         try
         {
+
             doc.insertString(doc.getLength(), data.time + "\n", time_set);
             if(data.message_sender_name.equals(Main.main_user.name))
             {
@@ -93,10 +110,10 @@ public class Right_panel extends JPanel implements IComponent
             }
             else
             {
-                doc.insertString(doc.getLength(), data.message_sender_name + "   " + data.time + "\n", other_set_name);
+                doc.insertString(doc.getLength(), data.message_sender_name  + "\n", other_set_name);
                 doc.insertString(doc.getLength(), data.message + '\n', other_set);
             }
-            message_inner_panel.updateUI();
+            //message_inner_panel.updateUI();
 
         }
         catch (Exception e)
@@ -106,9 +123,37 @@ public class Right_panel extends JPanel implements IComponent
         //message_area.append(data.time + "\n" + data.message);
     }
 
+    public synchronized void add_file_message(File_send_panel send_panel)
+    {
+
+
+        StyledDocument doc = message_inner_panel.getStyledDocument();
+        try
+        {
+            if(send_panel.get_my_id() == Main.main_user.getId())
+            {
+
+                file_set.addAttributes(user_set);
+            }
+            else
+            {
+                file_set.addAttributes(other_set);
+            }
+            StyleConstants.setComponent(file_set, send_panel);
+            doc.insertString(doc.getLength(), "\n" + send_panel.get_file_name() + "\n", file_set);
+            file_set = new SimpleAttributeSet();
+            updateUI();
+        }
+        catch (BadLocationException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
     private void set_enter_panel()
     {
-        BorderLayout layout = new BorderLayout();
+        enter_panel.setViewportView(enter_inner_panel);
+        /*BorderLayout layout = new BorderLayout();
         //GridBagLayout layout = new GridBagLayout();
         enter_panel.setLayout(layout);
         enter_area = new JTextArea("", 10, 20);
@@ -119,17 +164,22 @@ public class Right_panel extends JPanel implements IComponent
         constraints.weighty = 1;
         JScrollPane scrollPane = new JScrollPane(enter_area);
         scrollPane.setMinimumSize(new Dimension(600, 200));
-        enter_panel.add(scrollPane, BorderLayout.CENTER);
+        enter_panel.add(scrollPane, BorderLayout.CENTER);*/
     }
 
     private void set_message_panel()
     {
         message_panel.setViewportView(message_inner_panel);
+        message_inner_panel.setOpaque(false);
+        message_panel.setOpaque(false);
+        message_panel.getViewport().setOpaque(false);
         other_set = new SimpleAttributeSet();
         user_set = new SimpleAttributeSet();
         other_set_name = new SimpleAttributeSet();
         user_set_name = new SimpleAttributeSet();
         time_set = new SimpleAttributeSet();
+        icon_set = new SimpleAttributeSet();
+        file_set = new SimpleAttributeSet();
         StyleConstants.setFontSize(time_set, 10);
         StyleConstants.setForeground(time_set, Color.GRAY);
         StyleConstants.setAlignment(time_set, StyleConstants.ALIGN_CENTER);
@@ -140,12 +190,14 @@ public class Right_panel extends JPanel implements IComponent
         StyleConstants.setLineSpacing(other_set, 1);
         StyleConstants.setFontSize(other_set, 15);
         StyleConstants.setFontFamily(other_set, "Arial Black");
+        StyleConstants.setRightIndent(other_set, 136.5f);
 
         StyleConstants.setAlignment(user_set, StyleConstants.ALIGN_RIGHT);
         StyleConstants.setLineSpacing(user_set, 1);
         StyleConstants.setFontSize(user_set, 15);
         StyleConstants.setFontFamily(user_set, "Arial Black");
-        StyleConstants.ParagraphConstants.setBackground(user_set,new Color(111, 233, 250));
+        StyleConstants.ParagraphConstants.setBackground(user_set,new Color(246, 250, 121));
+        StyleConstants.setLeftIndent(user_set, 136.5f);
 
         //StyleConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 2);
 
@@ -153,25 +205,25 @@ public class Right_panel extends JPanel implements IComponent
         StyleConstants.setFontSize(other_set_name, 18);
         StyleConstants.setLineSpacing(other_set_name, (float) 1.5);
         StyleConstants.setAlignment(other_set_name, StyleConstants.ALIGN_LEFT);
-        StyleConstants.setForeground(other_set_name, new Color(59, 250, 82));
+        StyleConstants.setForeground(other_set_name, new Color(231, 121, 250));
 
         StyleConstants.setBold(user_set_name, true);
         StyleConstants.setFontSize(user_set_name, 20);
         StyleConstants.setLineSpacing(user_set_name, (float) 1.5);
         StyleConstants.setAlignment(user_set_name, StyleConstants.ALIGN_RIGHT);
-        StyleConstants.setForeground(user_set_name, new Color(135, 205, 250));
+        StyleConstants.setForeground(user_set_name, new Color(250, 0, 0));
+
 
     }
 
     private void set_message_toolbar()
     {
-        BorderLayout layout = new BorderLayout();
-        message_toolbar.setLayout(layout);
+        message_toolbar.setLayout(new GridBagLayout());
+        GridBagConstraints constraints = new GridBagConstraints();
         JButton button_file_choose = new JButton("打开");
         button_file_choose.setToolTipText("发送文件");
 
-        message_toolbar.add(button_file_choose, BorderLayout.WEST);
-        message_toolbar.addSeparator();
+        message_toolbar.add(button_file_choose, constraints);
         message_toolbar.setFloatable(false);
         button_file_choose.addActionListener(new ActionListener()
         {
@@ -179,11 +231,34 @@ public class Right_panel extends JPanel implements IComponent
             public void actionPerformed(ActionEvent actionEvent)
             {
                 JFileChooser file_chooser = new JFileChooser();
+                file_chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                 file_chooser.setDialogTitle("打开");
+                file_chooser.setMultiSelectionEnabled(true);
                 int mode;
-                if((mode = file_chooser.showSaveDialog(button_file_choose)) == JFileChooser.APPROVE_OPTION)
+                if((mode = file_chooser.showOpenDialog(button_file_choose)) == JFileChooser.APPROVE_OPTION)
                 {
-                    File files = file_chooser.getSelectedFile();
+                    File[] files = file_chooser.getSelectedFiles();
+                    is_sending_files = true;
+                    for(File file : files)
+                    {
+                        File_info info = new File_info(file, Main.main_user.getId());
+                        info.send_to_id = Scroll_panel.select_button.id;
+                        ready_to_send_file.add(info);
+                        Icon ico = FileSystemView.getFileSystemView().getSystemIcon(file);
+                        StyleConstants.setIcon(icon_set, ico);
+                        StyledDocument doc = enter_inner_panel.getStyledDocument();
+                        try
+                        {
+                            doc.insertString(doc.getLength(), file.getName(), icon_set);
+                        }
+                        catch (BadLocationException e)
+                        {
+                            e.printStackTrace();
+                        }
+                        /**
+                         * TODO: 将图片换成组件，当删除时可以获得删除文件信息
+                         */
+                    }
                 }
                 else if(mode == JFileChooser.ERROR_OPTION)
                 {
@@ -193,14 +268,62 @@ public class Right_panel extends JPanel implements IComponent
 
             }
         });
+        JButton button_voice_chat = new JButton("语音");
+        message_toolbar.add(button_voice_chat, constraints);
+        button_voice_chat.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent)
+            {
+                if(Voice_Window.current != null && Voice_Window.current.isActive())
+                {
+                    JOptionPane.showMessageDialog(null, "您正在进行通话");
+                    return;
+                }
+                new Voice_Window(Window.current, true, Main.main_user.getId(), Scroll_panel.select_button.id);
+                Send_data data = new Send_data(Scroll_panel.select_button.id, null);
+                data.data_type = Send_data.Data_type.Request_voice_call;
+                Main.main_user.send_message(data);
+            }
+        });
         JButton button_send_message = new JButton("发送");
-        message_toolbar.add(button_send_message, BorderLayout.EAST);
+        constraints.gridwidth = 0;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.anchor = GridBagConstraints.EAST;
+        constraints.weightx = 1;
+        JPanel temp_panel = new JPanel();
+        message_toolbar.add(temp_panel, constraints);
+        temp_panel.setLayout(new BorderLayout());
+        temp_panel.add(button_send_message, BorderLayout.EAST);
+
         button_send_message.addActionListener(new ActionListener()
         {
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                String text = enter_area.getText();
+                if(is_sending_files)
+                {
+                    for(File_info file : ready_to_send_file)
+                    {
+                        Main.main_user.send_file(file);//包含了将信息发送到面板及把信息加入到
+                    }
+
+                    ready_to_send_file.clear();
+                    enter_inner_panel.setText("");
+                    is_sending_files = false;
+                    return;
+                }
+                StyledDocument doc = enter_inner_panel.getStyledDocument();
+                String text = null;
+                try
+                {
+                    text = doc.getText(0, doc.getLength()-1);
+                }
+                catch (BadLocationException e)
+                {
+                    e.printStackTrace();
+                }
+
                 if(!(regex.matcher(text).matches() || text.equals(""))
                         && Scroll_panel.select_button != null)//不是空格并且选中一个选项卡
                 {
@@ -214,7 +337,7 @@ public class Right_panel extends JPanel implements IComponent
                     Main.main_user.send_message(send_data);
                     //给对方的，所以is_user = false
                 }
-                enter_area.setText("");
+                enter_inner_panel.setText("");
             }
         });
     }
@@ -248,6 +371,7 @@ public class Right_panel extends JPanel implements IComponent
     public void after_initialize()
     {
         StyleConstants.ParagraphConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 4);
+        StyleConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 4);
         StyleConstants.setRightIndent(other_set, (float)message_inner_panel.getWidth() / 4);
     }
 }

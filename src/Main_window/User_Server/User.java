@@ -27,6 +27,7 @@ import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.Timer;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author: 李子麟
@@ -41,6 +42,13 @@ public class User implements Serializable
     private List<Friend_confirm_data> confirm_data;
     private Friend_list_data friend_list_data;
     private List<User_group> groups;
+    private List<File_info> uploading_file;//正在上传的文件
+    private transient Bootstrap message_bootstrap;
+    private transient  Bootstrap login_bootstrap;
+    private transient Channel send_message_channel;
+    private  transient Channel login_channel;
+    private transient Channel send_file_channel;
+
 
     public User()
     {
@@ -57,118 +65,143 @@ public class User implements Serializable
         confirm_data = new ArrayList<Friend_confirm_data>();
         friend_list_data = new Friend_list_data();
         groups = new ArrayList<>();
+        uploading_file = new ArrayList<>();
+        init_login_bootstrap();
+        init_message_bootstrap();
     }
+
+    private void init_message_bootstrap()
+    {
+        EventLoopGroup group = new NioEventLoopGroup();
+        message_bootstrap = new Bootstrap();
+        message_bootstrap.group(group).channel(NioSocketChannel.class);
+        message_bootstrap.handler(new ChannelInitializer<Channel>()
+        {
+
+            @Override
+            protected void initChannel(Channel channel) throws Exception
+            {
+                ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast(new IdleStateHandler(0, 60, 0,  TimeUnit.SECONDS));
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+                pipeline.addLast("handler", new Client_handle());
+            }
+        });
+        message_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        try
+        {
+            send_file_channel = message_bootstrap.connect("192.168.137.1", 10088).sync().channel();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    private void init_login_bootstrap()
+    {
+        EventLoopGroup group1 = new NioEventLoopGroup();
+        login_bootstrap = new Bootstrap();
+        login_bootstrap.group(group1).channel(NioSocketChannel.class);
+        login_bootstrap.handler(new ChannelInitializer<Channel>()
+        {
+            @Override
+            protected void initChannel(Channel channel) throws Exception
+            {
+                ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast(new IdleStateHandler(0, 60, 0,  TimeUnit.SECONDS));
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(
+                        Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+                pipeline.addLast("handler", new Login_message_handle());
+            }
+        });
+        login_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        try
+        {
+            login_channel = login_bootstrap.connect("192.168.137.1", 10087).sync().channel();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+
+    public void send_file(File_info file)
+    {
+        Bootstrap file_bootstrap;
+        file_bootstrap = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        file_bootstrap = new Bootstrap();
+        file_bootstrap.group(group).channel(NioSocketChannel.class);
+        file_bootstrap.handler(new ChannelInitializer()
+        {
+
+            @Override
+            protected void initChannel(Channel channel) throws Exception
+            {
+                ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(
+                        Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+                pipeline.addLast("handler", new File_handle(file, false));
+            }
+        });
+        file_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        synchronized (this)
+        {
+            uploading_file.add(file);
+        }
+        try
+        {
+            add_file_message(file);
+            ChannelFuture future = file_bootstrap.connect("192.168.137.1", 10089).sync();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
 
     public void send_message(Send_data message)
     {
-        new Thread(()->
+        try
         {
-            try
+            if(message_bootstrap == null)
             {
-                SocketChannel channel = SocketChannel.open();
-                channel.configureBlocking(false);
-                Selector selector = Selector.open();
-                //channel.register(selector, SelectionKey.OP_CONNECT);
-                channel.connect(new InetSocketAddress("192.168.137.1", 10088));
-                ;
-                channel.write(ByteBuffer.wrap("hello".getBytes()));
-                while(selector.select() > 0)
-                {
-                    Iterator iterator = selector.selectedKeys().iterator();
-                    while (iterator.hasNext())
-                    {
-                        SelectionKey key = (SelectionKey) iterator.next();
-                        iterator.remove();
-                        if (key.isConnectable())
-                        {
-                            SocketChannel socketChannel = (SocketChannel) key.channel();
-                            if (socketChannel.isConnectionPending())
-                            {
-                                channel.finishConnect();
-                            }
-                            ByteBuf buf = Unpooled.buffer(10);
-                            ByteBufOutputStream outputStream = new ByteBufOutputStream(buf);
-                            ObjectEncoderOutputStream out = new ObjectEncoderOutputStream(outputStream);
-                            out.writeObject(message);
-                            ByteBuffer byteBuffer = buf.nioBuffer();
-                            while (byteBuffer.hasRemaining())
-                            {
-                                channel.write(byteBuffer);
-                            }
-                            socketChannel.configureBlocking(false);
-                            socketChannel.register(selector, SelectionKey.OP_READ);
-                        }
-                        else if(key.isReadable())
-                        {
-                            if(message.data_type == Send_data.Data_type.Search_friend)
-                            {
-                                ByteBuf buf = Unpooled.buffer(10);
-                                ByteBuffer buffer = ByteBuffer.allocate(1024);
-                                while (true)
-                                {
-                                    if (!(channel.read(buffer) > 0))
-                                        break;
-                                    buffer.flip();
-                                    buf.readBytes(buffer);
-                                    buffer.clear();
-                                }
-                                ByteBufInputStream inputStream = new ByteBufInputStream(buf);
-                                ObjectDecoderInputStream input = new ObjectDecoderInputStream(inputStream);
-                                Search_back_data back_data = (Search_back_data) input.readObject();
-                                if(Add_friend_window.current != null)
-                                {
-                                    Add_friend_window.current.add_friend_card(back_data);
-                                }
-                            }
-                        }
-                    }
-                }
-                channel.close();
+                init_message_bootstrap();
             }
-            catch (Exception e)
-            {
-                JOptionPane.showMessageDialog(null, "无法连接服务器",
+            message.my_id = id;
+            send_file_channel.writeAndFlush(message);
+        }
+        catch (Exception e)
+        {
+            JOptionPane.showMessageDialog(null, "无法连接服务器",
                         "错误", JOptionPane.ERROR_MESSAGE);
                 e.printStackTrace();
             }
         }).start();
     }
 
-    /**
-     *
-     * @param user_id
-     * @param is_register: 如果是，为注册信息
-     * @param password
-     */
-    public void send_login_message(String name, int user_id, boolean is_register, String password)
+
+    public void send_login_message(Login_data login_data)
     {
-        new Thread(()->
+        if(login_bootstrap == null)
         {
-            try
-            {
-                SocketChannel channel = SocketChannel.open();
-                channel.configureBlocking(false);
-                Selector selector = Selector.open();
-
-                //channel.register(selector, SelectionKey.OP_CONNECT);
-                channel.connect(new InetSocketAddress("192.168.137.1", 10087));
-                while (!channel.finishConnect());
-                write_login_message(channel, name, user_id, is_register, password);//向服务器写信息
-
-                while(selector.select() > 0)
-                {
-                    Iterator iterator = selector.selectedKeys().iterator();
-                    while(iterator.hasNext())
-                    {
-                        SelectionKey key = (SelectionKey) iterator.next();
-                        iterator.remove();
-                        if(key.isConnectable())
-                        {
-                            SocketChannel socketChannel = (SocketChannel) key.channel();
-                            if(socketChannel.isConnectionPending())
-                            {
-                                channel.finishConnect();
-                            }
+            init_login_bootstrap();
+        }
+        //这里的sync是同步等待连接成功
+        login_channel.writeAndFlush(login_data);
+    }
 
                             socketChannel.configureBlocking(false);
                             //socketChannel.register(selector, SelectionKey.OP_READ);

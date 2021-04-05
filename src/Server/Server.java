@@ -9,6 +9,12 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
+import io.netty.util.HashedWheelTimer;
+import io.netty.util.Timeout;
+import io.netty.util.Timer;
+import io.netty.util.TimerTask;
+import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.util.concurrent.EventExecutorGroup;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,6 +28,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.*;
 
 /**
@@ -51,60 +58,49 @@ public class Server extends Thread
 
     public void run()
     {
-        try
-        {
-            //ServerSocket socket = new ServerSocket(port[mode]);
-            ServerSocketChannel socketChannel = ServerSocketChannel.open();
-            socketChannel.configureBlocking(false);
-            socketChannel.bind(new InetSocketAddress(port[mode]));
-            Selector selector = Selector.open();
-            SelectionKey register = socketChannel.register(selector, SelectionKey.OP_ACCEPT);
-
-            while(selector.select() > 0)
+            ServerBootstrap b = new ServerBootstrap();
+            b.group(boss_group, worker_group);
+            b.channel(NioServerSocketChannel.class);
+            b.option(ChannelOption.SO_BACKLOG, 2048);
+            b.childHandler(new ChannelInitializer<SocketChannel>()
             {
-                Iterator<SelectionKey> selectionKeyIterator = selector.selectedKeys().iterator();
-                while(selectionKeyIterator.hasNext())
+                @Override
+                protected void initChannel(SocketChannel socketChannel) throws Exception
                 {
-                    SelectionKey key = selectionKeyIterator.next();
-                    selectionKeyIterator.remove();
-                    if(key.isAcceptable())
-                    {
-                        ServerSocketChannel serverSocketChannel = (ServerSocketChannel)key.channel();
-                        SocketChannel clientChannel = serverSocketChannel.accept();
-                        clientChannel.configureBlocking(false);
-                        /**
-                         * 成功进行连接，为了可以接收到客户端消息，要给通道读权限
-                         */
-                        clientChannel.register(selector, SelectionKey.OP_READ, new test_thread());
-                    }
-                    else if(key.isValid() && key.isReadable())
-                    {
-                        /*ObjectDecoderInputStream input = null;
-                        SocketChannel channel = (SocketChannel)key.channel();
-                        ByteBuffer buffer =  ByteBuffer.allocate(1024);
-                        ByteBuf buf = Unpooled.buffer(10);
-                        while (channel.read(buffer) > 0)
-                        {
-                            buffer.flip();
-                            buf.writeBytes(buffer);
-                            buffer.clear();
-                        }
-                        ByteBufInputStream inputStream = new ByteBufInputStream(buf);
-                        input = new ObjectDecoderInputStream(inputStream);
-                        Login_data data = null;
-                        try
-                        {
-                            data = (Login_data)input.readObject();
-                        }
-                        catch (ClassNotFoundException e)
-                        {
-                            e.printStackTrace();
-                        }
-                        System.out.println(data.id);*/
-                        new test_thread(key).start();
-                        //new Server_handle_thread(key, mode).start();
-                    }
+                    ChannelPipeline pipeline = socketChannel.pipeline();
+                    pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(
+                            Integer.MAX_VALUE, 0, 4, 0, 4));
+                    pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                    pipeline.addLast("decoder", new UserDecoder());
+                    pipeline.addLast("encoder", new UserEncoder());
+                    pipeline.addLast(business_group, new Server_handle(mode));
                 }
+            });
+            //心跳检测的定时任务
+            HashedWheelTimer timer = new HashedWheelTimer(180, TimeUnit.SECONDS);
+            TimerTask task = new TimerTask()
+            {
+                @Override
+                public void run(Timeout timeout) throws Exception
+                {
+                    Server_main.handle_heart_beat();
+                }
+            };
+            timer.newTimeout(task, 10, TimeUnit.SECONDS);
+            timer.start();
+            try
+            {
+                ChannelFuture f = b.bind("192.168.137.1", port[mode]).sync();
+                f.channel().closeFuture().sync();
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+            finally
+            {
+                worker_group.shutdownGracefully();
+                boss_group.shutdownGracefully();
             }
 
         }

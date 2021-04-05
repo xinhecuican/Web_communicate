@@ -2,6 +2,7 @@ package Main_window;
 
 import Interface.IComponent;
 import Main_window.Component.Base_button_card;
+import Main_window.Data.Login_data;
 import Main_window.Data.User_group;
 import Main_window.Pop_window.Add_friend_window;
 import Main_window.Pop_window.Create_group_window;
@@ -9,6 +10,7 @@ import Main_window.Pop_window.Friend_list_window;
 import Main_window.Pop_window.Pop_window;
 import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Separate_panel.Right_panel;
+import Main_window.User_Server.User;
 import Main_window.User_Server.User_friend;
 
 import javax.swing.*;
@@ -77,8 +79,9 @@ public class Window extends JFrame
                         Main.main_user.find_group(basecard.id).is_group_in_list = true;
                     }
                 }
-                Main.main_user.send_login_message(String.valueOf(Main.main_user.getId()),
-                        11, false, "");
+                Login_data data = User.get_login_data(String.valueOf(Main.main_user.getId()),
+                        11, "", Login_data.Login_type.Offline);
+                Main.main_user.send_login_message(data);
                 Main.main_user.write_to_directory();
 
             }
@@ -127,16 +130,24 @@ public class Window extends JFrame
         layout.addLayoutComponent(right_panel, constraints);
 
         root_panel.setLayout(layout);
-        for(User_friend friend : Main.main_user.get_list_friend())//加载上次在表中的好友
+        new Thread(new Runnable()
         {
-            scroll_panel.add_card(friend);
-            friend.is_user_in_list = false;
-        }
-        for(User_group group : Main.main_user.get_all_groups())
-        {
-            scroll_panel.add_card(group);
-            group.is_group_in_list = false;
-        }
+            @Override
+            public void run()
+            {
+                for(User_friend friend : Main.main_user.get_list_friend())//加载上次在表中的好友
+                {
+                    scroll_panel.add_card(friend);
+                    friend.is_user_in_list = false;
+                }
+                for(User_group group : Main.main_user.get_all_groups())
+                {
+                    scroll_panel.add_card(group);
+                    group.is_group_in_list = false;
+                }
+            }
+        }).start();
+
 
     }
 

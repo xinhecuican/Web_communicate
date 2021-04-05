@@ -33,7 +33,7 @@ public class Scroll_panel extends JPanel
     private GridBagLayout layout;
     private GridBagConstraints constraints;
     private JPanel scroll_out_panel;
-    private static final Color SELECT_COLOR = new Color(160, 160, 160, 100);
+    private static final Color SELECT_COLOR = new Color(250, 255, 150, 100);
     public Scroll_panel()
     {
         super();
@@ -44,6 +44,7 @@ public class Scroll_panel extends JPanel
         scroll_out_panel.setLayout(new BorderLayout());
         scrollPane = new JScrollPane(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
 
         data = new ArrayList<Base_button_card>();
         setAutoscrolls(true);
@@ -125,7 +126,6 @@ public class Scroll_panel extends JPanel
             if(base_button_card.id == search_id)//在列表中存在时直接切换
             {
                 select_button_change(base_button_card);
-                set_message(base_button_card);
                 /**
                  * TODO: 在scroll_inner_panel中切换到对应位置
                  */
@@ -145,7 +145,6 @@ public class Scroll_panel extends JPanel
         Base_button_card button = new Base_button_card(friend, new Write_message_listener());
         this.data.add(button);
         select_button_change(button);
-        set_message(button);
         scroll_inner_panel.add(button, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
@@ -160,7 +159,6 @@ public class Scroll_panel extends JPanel
         Base_button_card button = new Base_button_card(group, new Write_message_listener());
         this.data.add(button);
         select_button_change(button);
-        set_message(button);
         scroll_inner_panel.add(button, constraints);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
@@ -189,7 +187,10 @@ public class Scroll_panel extends JPanel
 
     public static void select_button_change(Base_button_card new_button)
     {
-        System.out.println(1);
+        if(new_button == select_button)
+        {
+            return;
+        }
         if(select_button == null)
         {
             last_time_background = new Color(255, 255, 255);
@@ -201,6 +202,7 @@ public class Scroll_panel extends JPanel
         }
         select_button = new_button;
         select_button.setBackground(SELECT_COLOR);
+        set_message(Scroll_panel.select_button);
     }
 
     public ArrayList<Base_button_card> getData()

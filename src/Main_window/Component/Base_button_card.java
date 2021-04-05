@@ -3,6 +3,7 @@ package Main_window.Component;
 import Main_window.Data.Message_data;
 import Main_window.Data.User_group;
 import Main_window.Data.message_rightdata;
+import Main_window.Main;
 import Main_window.User_Server.User_friend;
 import Main_window.Window;
 
@@ -107,8 +108,18 @@ public class Base_button_card extends JButton
         Window.current.getRight_panel().clear();
         for(int i=0; i<rightdataList.size(); i++)
         {
-            Window.current.getRight_panel().add_piece_message(rightdataList.get(i));
+            if(!rightdataList.get(i).is_file)
+            {
+                Window.current.getRight_panel().add_piece_message(rightdataList.get(i));
+            }
+            else
+            {
+                User_friend friend = Main.main_user.find_friend(Integer.parseInt(rightdataList.get(i).message_sender_name));
+                Window.current.getRight_panel().add_file_message(
+                        friend.communicate_data.create_file_panel(Long.parseLong(rightdataList.get(i).message)));
+            }
         }
+
     }
 
 

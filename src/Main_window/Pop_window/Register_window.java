@@ -1,6 +1,8 @@
 package Main_window.Pop_window;
 
+import Main_window.Data.Login_data;
 import Main_window.Main;
+import Main_window.User_Server.User;
 
 import javax.swing.*;
 import java.awt.*;
@@ -51,7 +53,8 @@ public class Register_window extends Pop_window
                 else
                 {
                     String user_name = text_user_name.getText();
-                    Main.main_user.send_login_message(user_name, 0, true, password);
+                    Login_data data = User.get_login_data(user_name, 0, password, Login_data.Login_type.Register);
+                    Main.main_user.send_login_message(data);
                     dispose();
                 }
             }

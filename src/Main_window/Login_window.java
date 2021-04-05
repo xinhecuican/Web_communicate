@@ -1,6 +1,8 @@
 package Main_window;
 
+import Main_window.Data.Login_data;
 import Main_window.Pop_window.Register_window;
+import Main_window.User_Server.User;
 import Main_window.User_Server.User_server;
 
 import javax.swing.*;
@@ -64,8 +66,9 @@ public class Login_window extends JFrame
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                Main.main_user.send_login_message("", Integer.parseInt(user_text.getText()),
-                        false, String.valueOf(password_text.getPassword()));
+                Login_data data = User.get_login_data("", Integer.parseInt(user_text.getText())
+                        , String.valueOf(password_text.getPassword()), Login_data.Login_type.Login);
+                Main.main_user.send_login_message(data);
             }
         });
 

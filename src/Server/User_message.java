@@ -1,8 +1,10 @@
 package Server;
 
 import Main_window.Data.Send_data;
+import Server.Data.File_info;
 
 import javax.swing.*;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,7 +23,13 @@ public class User_message implements java.io.Serializable
     public int port;
     protected List<Integer> friend_id;//线程安全
     public List<Send_data> data;//线程安全
+    public List<File_info> files;
     private String password;
+    /**
+     *  = 1正常
+     *  = 0 清空状态，如果下一次检测时还是0就会把连接移除
+     */
+    public boolean heart_beat_test;
     public User_message(int id, String name, String password, boolean is_online, String host, int port)
     {
         user_id = id;
@@ -33,6 +41,8 @@ public class User_message implements java.io.Serializable
         friend_id = new CopyOnWriteArrayList<Integer>();
         List<Send_data> temp_list = new ArrayList<Send_data>();
         data = Collections.synchronizedList(temp_list);
+        files = new CopyOnWriteArrayList<>();
+        heart_beat_test = false;
     }
 
     public int get_id()
@@ -44,4 +54,5 @@ public class User_message implements java.io.Serializable
     {
         return password.equals(compare_password);
     }
+
 }
