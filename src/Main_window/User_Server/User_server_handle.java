@@ -3,7 +3,9 @@ package Main_window.User_Server;
 import Main_window.Component.Friend_confirm_card;
 import Main_window.Data.Friend_confirm_data;
 import Main_window.Data.Send_data;
+import Main_window.Data.User_group;
 import Main_window.Data.message_rightdata;
+import Main_window.Debug_helper.Debug_manager;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
 import Main_window.Pop_window.Voice_Window;
@@ -13,6 +15,7 @@ import Server.Server_main;
 import Server.User_message;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 
 import javax.swing.*;
 import java.io.File;
@@ -34,34 +37,55 @@ public class User_server_handle extends ChannelInboundHandlerAdapter
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception
     {
-        if(msg instanceof Send_data)
+        try
         {
-            Send_data input_data = (Send_data) msg;
-            handle_message(input_data);
-        }
-        else if(msg instanceof File_info)
-        {
-            File_info file = (File_info)msg;
-            byte[] bytes = file.bytes;
-            String file_path = User.file_root_path + String.valueOf(file.send_to_id)  + "/Data/" + file.file_name;
-            if(file.end_pos == -1)
+            if (msg instanceof Send_data)
             {
-                file.total_path = file_path;
-                User_friend friend = Main.main_user.find_friend(file.my_id);
-                friend.set_file_finished(file);
-                ctx.close();
-                return;
+                Send_data input_data = (Send_data) msg;
+                handle_message(input_data);
             }
-            File download_file_directory = new File(User.file_root_path + String.valueOf(file.send_to_id) + "/" + "Data");
-            download_file_directory.mkdirs();
-            RandomAccessFile io = new RandomAccessFile(file_path, "rw");
-            io.seek(file.start_pos);
-            Main.main_user.find_friend(file.my_id).communicate_data.
-                    find_file(file.time).On_len_change(file.start_pos);
-            io.write(bytes);
-            io.close();
-            ctx.writeAndFlush(file.start_pos + file.end_pos);
+            else if (msg instanceof File_info)
+            {
+                File_info file = (File_info) msg;
+                byte[] bytes = file.bytes;
+                String file_path = User.file_root_path + String.valueOf(
+                        Main.main_user.getId()) + "/Data/" + Window.get_format_time(file.time) +  file.file_name;
+                if (file.end_pos == -1)
+                {
+                    file.total_path = file_path;
+                    if(!file.is_group)
+                    {
+                        User_friend friend = Main.main_user.find_friend(file.my_id);
+                        friend.set_file_finished(file);
+                        ctx.close();
+                        return;
+                    }
+                    Main.main_user.find_group(file.send_to_id).set_file_finished(file);
+                    ctx.close();
+                    return;
+                }
+                File download_file_directory = new File(User.file_root_path + String.valueOf(
+                        Main.main_user.getId()) + "/" + "Data");
+                download_file_directory.mkdirs();
+                RandomAccessFile io = new RandomAccessFile(file_path, "rw");
+                io.seek(file.start_pos);
+                if(file.is_group)
+                {
+                    Main.main_user.find_group(file.send_to_id).data.find_file(file.time).On_len_change(file.start_pos);
+                }
+                else
+                {
+                    Main.main_user.find_friend(file.my_id).communicate_data.find_file(file.time).On_len_change(file.start_pos);
+                }
+                io.write(bytes);
+                io.close();
+                ctx.writeAndFlush(file.start_pos + file.end_pos);
 
+            }
+        }
+        finally
+        {
+            ReferenceCountUtil.release(msg);
         }
 
     }
@@ -117,6 +141,8 @@ public class User_server_handle extends ChannelInboundHandlerAdapter
             case File_arrive:
                 Main.main_user.add_file_message(input_data);
                 break;
+            case Group_file_arrive:
+                Main.main_user.add_group_file(input_data);
             case Request_voice_fail:
                 if(Voice_Window.is_active())
                     Voice_Window.current.set_info("用户不在线");
@@ -147,7 +173,15 @@ public class User_server_handle extends ChannelInboundHandlerAdapter
                     Main.main_user.send_message(data);
                 }
                 break;
-
+            case debug_send_message:
+                if(input_data.data.message.equals("你好，用户1"))
+                {
+                    Debug_manager.current.add_success(input_data.my_id);
+                }
+                break;
+            case Heart_beat_test:
+                User.trigger_heart_beat();
+                break;
 
         }
 

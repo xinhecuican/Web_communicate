@@ -17,6 +17,7 @@ public class UserEncoder extends MessageToByteEncoder<Serializable>
     protected void encode(ChannelHandlerContext ctx, Serializable user, ByteBuf out) throws Exception {
         byte[] datas = ByteObjConverter.objectToByte(user);
         out.writeBytes(datas);
+        datas = null;
         ctx.flush();
     }
 

@@ -3,6 +3,7 @@ package Main_window.Data;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * @author: 李子麟
@@ -14,7 +15,7 @@ public class Friend_list_data implements Serializable
     public List<Tree_data> data;
     public Friend_list_data()
     {
-        data = new ArrayList<Tree_data>();
+        data = new CopyOnWriteArrayList<>();
         add_tree("我的好友");
         add_tree("我的群聊");
     }
@@ -25,6 +26,7 @@ public class Friend_list_data implements Serializable
         {
             if(data1.getName().equals(tree_name))
             {
+
                 data1.add_friend(id);
                 return;
             }

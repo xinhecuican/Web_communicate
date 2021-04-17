@@ -55,7 +55,6 @@ public class User_server extends Thread
         }
         boss_group = new NioEventLoopGroup();
         worker_group = new NioEventLoopGroup();
-        business_group = new DefaultEventExecutorGroup(Runtime.getRuntime().availableProcessors()*2);
     }
     @Override
     public void run()
@@ -63,7 +62,7 @@ public class User_server extends Thread
         ServerBootstrap b = new ServerBootstrap();
         b.group(boss_group, worker_group);
         b.channel(NioServerSocketChannel.class);
-        b.option(ChannelOption.SO_BACKLOG, 2048);
+        b.option(ChannelOption.SO_BACKLOG, 8192);
         b.childHandler(new ChannelInitializer<io.netty.channel.socket.SocketChannel>()
         {
             @Override
@@ -75,7 +74,7 @@ public class User_server extends Thread
                 pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
                 pipeline.addLast("decoder", new UserDecoder());
                 pipeline.addLast("encoder", new UserEncoder());
-                pipeline.addLast(business_group, new User_server_handle());
+                pipeline.addLast("handle", new User_server_handle());
             }
         });
         try

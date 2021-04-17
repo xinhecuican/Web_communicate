@@ -18,7 +18,7 @@ public class Show_card_listener implements ActionListener
     public void actionPerformed(ActionEvent actionEvent)
     {
         Base_button_card button = (Base_button_card)actionEvent.getSource();
-        Window.current.getScroll_panel().add_card(Main.main_user.find_friend(button.id));
+        Window.current.getScroll_panel().add_card(Main.main_user.find_friend(button.id), true);
         Window.current.requestFocus();
     }
 }

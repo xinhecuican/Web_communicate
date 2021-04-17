@@ -1,8 +1,7 @@
 package Main_window.Separate_panel;
 
-import Common.ImgUtils;
 import Interface.IComponent;
-import Main_window.Component.Background_message_panel;
+import Main_window.UI.Background_message_panel;
 import Main_window.Component.File_send_panel;
 import Main_window.Data.Send_data;
 import Main_window.Data.message_rightdata;
@@ -12,14 +11,12 @@ import Main_window.Window;
 import Server.Data.File_info;
 
 import javax.swing.*;
-import javax.swing.border.Border;
 import javax.swing.filechooser.FileSystemView;
 import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 
@@ -96,12 +93,15 @@ public class Right_panel extends JPanel implements IComponent
         message_inner_panel.setText("");
     }
 
+    /**
+     * 添加文字消息到消息面板中
+     * @param data
+     */
     public synchronized void add_piece_message(message_rightdata data)
     {
         StyledDocument doc = message_inner_panel.getStyledDocument();
         try
         {
-
             doc.insertString(doc.getLength(), data.time + "\n", time_set);
             if(data.message_sender_name.equals(Main.main_user.name))
             {
@@ -125,22 +125,35 @@ public class Right_panel extends JPanel implements IComponent
 
     public synchronized void add_file_message(File_send_panel send_panel)
     {
-
-
         StyledDocument doc = message_inner_panel.getStyledDocument();
         try
         {
-            if(send_panel.get_my_id() == Main.main_user.getId())
+            boolean is_user = send_panel.get_my_id() == Main.main_user.getId();
+            if(is_user)
             {
-
-                file_set.addAttributes(user_set);
+                doc.insertString(doc.getLength(),   Main.main_user.name+ "\n", user_set_name);
             }
             else
             {
-                file_set.addAttributes(other_set);
+                if(Main.main_user.find_friend(send_panel.get_my_id()) != null)
+                {
+                    doc.insertString(doc.getLength(),
+                            Main.main_user.find_friend(send_panel.get_my_id()).getName() + "\n", other_set_name
+                    );
+                }
             }
             StyleConstants.setComponent(file_set, send_panel);
-            doc.insertString(doc.getLength(), "\n" + send_panel.get_file_name() + "\n", file_set);
+
+            if(is_user)
+            {
+                doc.insertString(doc.getLength(), " ", other_set);
+            }
+            doc.insertString(doc.getLength(), send_panel.get_file_name() +
+                    (is_user ? "\n" : "") , file_set);
+            if(!is_user)
+            {
+                doc.insertString(doc.getLength(), "\n", other_set);
+            }
             file_set = new SimpleAttributeSet();
             updateUI();
         }
@@ -196,22 +209,22 @@ public class Right_panel extends JPanel implements IComponent
         StyleConstants.setLineSpacing(user_set, 1);
         StyleConstants.setFontSize(user_set, 15);
         StyleConstants.setFontFamily(user_set, "Arial Black");
-        StyleConstants.ParagraphConstants.setBackground(user_set,new Color(246, 250, 121));
+        StyleConstants.ParagraphConstants.setBackground(user_set,new Color(18, 183, 245));
         StyleConstants.setLeftIndent(user_set, 136.5f);
 
         //StyleConstants.setLeftIndent(user_set, (float)message_inner_panel.getWidth() / 2);
 
         StyleConstants.setBold(other_set_name, true);
-        StyleConstants.setFontSize(other_set_name, 18);
+        StyleConstants.setFontSize(other_set_name, 10);
         StyleConstants.setLineSpacing(other_set_name, (float) 1.5);
         StyleConstants.setAlignment(other_set_name, StyleConstants.ALIGN_LEFT);
         StyleConstants.setForeground(other_set_name, new Color(231, 121, 250));
 
         StyleConstants.setBold(user_set_name, true);
-        StyleConstants.setFontSize(user_set_name, 20);
+        StyleConstants.setFontSize(user_set_name, 10);
         StyleConstants.setLineSpacing(user_set_name, (float) 1.5);
         StyleConstants.setAlignment(user_set_name, StyleConstants.ALIGN_RIGHT);
-        StyleConstants.setForeground(user_set_name, new Color(250, 0, 0));
+        //StyleConstants.setForeground(user_set_name, new Color(129, 203, 255));
 
 
     }
@@ -230,13 +243,44 @@ public class Right_panel extends JPanel implements IComponent
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                JFileChooser file_chooser = new JFileChooser();
+                FileDialog dialog = new FileDialog(Window.current, "打开", FileDialog.LOAD);
+                dialog.setMultipleMode(true);
+                dialog.setVisible(true);
+                if(Scroll_panel.select_button == null)
+                {
+                    return;
+                }
+                File[] files = dialog.getFiles();
+                is_sending_files = true;
+                for(File file : files)
+                {
+                    File_info info = new File_info(file, Main.main_user.getId());
+                    info.send_to_id = Scroll_panel.select_button.id;
+                    ready_to_send_file.add(info);
+                    Icon ico = FileSystemView.getFileSystemView().getSystemIcon(file);
+                    StyleConstants.setIcon(icon_set, ico);
+                    StyledDocument doc = enter_inner_panel.getStyledDocument();
+                    try
+                    {
+                        doc.insertString(doc.getLength(), file.getName(), icon_set);
+                    }
+                    catch (BadLocationException e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+
+                /*JFileChooser file_chooser = new JFileChooser();
                 file_chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
                 file_chooser.setDialogTitle("打开");
                 file_chooser.setMultiSelectionEnabled(true);
                 int mode;
                 if((mode = file_chooser.showOpenDialog(button_file_choose)) == JFileChooser.APPROVE_OPTION)
                 {
+                    if(Scroll_panel.select_button == null)
+                    {
+                        return;
+                    }
                     File[] files = file_chooser.getSelectedFiles();
                     is_sending_files = true;
                     for(File file : files)
@@ -255,16 +299,13 @@ public class Right_panel extends JPanel implements IComponent
                         {
                             e.printStackTrace();
                         }
-                        /**
-                         * TODO: 将图片换成组件，当删除时可以获得删除文件信息
-                         */
                     }
                 }
                 else if(mode == JFileChooser.ERROR_OPTION)
                 {
                     JOptionPane.showMessageDialog(file_chooser, "打开文件失败",
                             "错误", JOptionPane.ERROR_MESSAGE, null);
-                }
+                }*/
 
             }
         });
@@ -275,6 +316,10 @@ public class Right_panel extends JPanel implements IComponent
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
+                if(Scroll_panel.select_button == null)
+                {
+                    return;
+                }
                 if(Voice_Window.current != null && Voice_Window.current.isActive())
                 {
                     JOptionPane.showMessageDialog(null, "您正在进行通话");
@@ -301,11 +346,18 @@ public class Right_panel extends JPanel implements IComponent
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
+                if(Scroll_panel.select_button == null)
+                {
+                    enter_inner_panel.setText("");
+                    return;
+                }
                 if(is_sending_files)
                 {
+                    boolean is_group = Main.main_user.find_group(Scroll_panel.select_button.id) != null;
                     for(File_info file : ready_to_send_file)
                     {
-                        Main.main_user.send_file(file);//包含了将信息发送到面板及把信息加入到
+                        file.is_group = is_group;
+                        Main.main_user.send_file(file, is_group);//包含了将信息发送到面板及把信息加入到
                     }
 
                     ready_to_send_file.clear();
@@ -317,7 +369,7 @@ public class Right_panel extends JPanel implements IComponent
                 String text = null;
                 try
                 {
-                    text = doc.getText(0, doc.getLength()-1);
+                    text = doc.getText(0, doc.getLength());
                 }
                 catch (BadLocationException e)
                 {
@@ -342,30 +394,7 @@ public class Right_panel extends JPanel implements IComponent
         });
     }
 
-    public void debug_write_message()
-    {
-        String text = "test_message 哈哈哈134234更多【商店点;j;wejr；sdf我就跑额";
-        for(int i=0; i<100; i++)
-        {
-            if (!(regex.matcher(text).matches() || text.equals(""))
-                    && Scroll_panel.select_button != null)//不是空格并且选中一个选项卡
-            {
-                add_piece_message(new message_rightdata(Window.get_time(), text, Main.main_user.name));
-                boolean is_user = Main.main_user.add_message(
-                        Scroll_panel.select_button.id,
-                        new message_rightdata(Window.get_time(), text, Main.main_user.name)
-                );
-                Send_data send_data = new Send_data(
-                        Scroll_panel.select_button.id,
-                        new message_rightdata(Window.get_time(), text, Main.main_user.name)
-                );
-                send_data.data_type = is_user ?
-                        Send_data.Data_type.One_piece_message : Send_data.Data_type.Piece_group_message;
-                Main.main_user.send_message(send_data);
-                //给对方的，所以is_user = false
-            }
-        }
-    }
+
 
     @Override
     public void after_initialize()

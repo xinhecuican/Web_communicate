@@ -29,6 +29,7 @@ public class Login_data implements Serializable
         Request_friend_message,
         Offline,
         Login,
-        Register
+        Register,
+        debug_create_user
     }
 }

@@ -117,11 +117,11 @@ public class Friend_list_window extends Pop_window
                     User_friend friend;
                     if((friend = Main.main_user.find_friend(node.getId())) != null)
                     {
-                        Window.current.getScroll_panel().add_card(friend);
+                        Window.current.getScroll_panel().add_card(friend, true);
                     }
                     else
                     {
-                        Window.current.getScroll_panel().add_card(Main.main_user.find_group(node.getId()));
+                        Window.current.getScroll_panel().add_card(Main.main_user.find_group(node.getId()), true);
                     }
                     Window.current.requestFocus();
                     return;

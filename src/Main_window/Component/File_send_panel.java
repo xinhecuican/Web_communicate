@@ -7,6 +7,7 @@ import Main_window.User_Server.User;
 import Server.Data.File_info;
 
 import javax.swing.*;
+import javax.swing.border.BevelBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileSystemView;
@@ -42,6 +43,7 @@ public class File_send_panel extends JPanel implements IDownload_listener
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.weightx = 1;
         add(file_name, constraints);
+        this.setBorder(BorderFactory.createBevelBorder(BevelBorder.LOWERED));
 
         progressBar = new JProgressBar(0, 100);
         progressBar.setStringPainted(true);
@@ -110,12 +112,17 @@ public class File_send_panel extends JPanel implements IDownload_listener
             }
             button_download.addActionListener(actionEvent ->
             {
-                /**
-                 * TODO:完成下载
-                 */
                 Send_data data = new Send_data();
-                data.data_type = Send_data.Data_type.Request_file;
-                data.send_to_id = file.my_id;//发出者id
+                if(Main.main_user.find_group(file.send_to_id) != null)
+                {
+                    data.data_type = Send_data.Data_type.Request_group_file;
+                    data.send_to_id = file.send_to_id;//群id
+                }
+                else
+                {
+                    data.data_type = Send_data.Data_type.Request_file;
+                    data.send_to_id = file.my_id;//发出者id
+                }
                 data.searched_user = String.valueOf(file.time);
                 Main.main_user.send_message(data);
                 button_download.setEnabled(false);
@@ -148,6 +155,8 @@ public class File_send_panel extends JPanel implements IDownload_listener
         return file.my_id;
     }
 
+    public int get_friend_id() { return file.send_to_id;}
+
     public long get_time()
     {
         return file.time;
@@ -157,6 +166,6 @@ public class File_send_panel extends JPanel implements IDownload_listener
     public void On_len_change(int now_len)
     {
         progressBar.setValue((int)(100f * ((float)now_len / (float)file.file_len)));
-        updateUI();
+        progressBar.paintImmediately(0, 0, progressBar.getWidth(), progressBar.getHeight());
     }
 }

@@ -55,10 +55,15 @@ public class Send_data implements Serializable, Cloneable
 
         File_arrive,
         Request_file,
+        Group_file_arrive,
+        Request_group_file,
 
         Request_voice_call,
         Request_voice_fail,
         Cancel_voice_call,
-        Accept_voice_call
+        Accept_voice_call,
+        debug_send_message,
+
+        Heart_beat_test
     }
 }

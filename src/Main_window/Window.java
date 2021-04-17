@@ -1,9 +1,11 @@
 package Main_window;
 
+import Common.ImgUtils;
 import Interface.IComponent;
 import Main_window.Component.Base_button_card;
 import Main_window.Data.Login_data;
 import Main_window.Data.User_group;
+import Main_window.Debug_helper.Debug_manager;
 import Main_window.Pop_window.Add_friend_window;
 import Main_window.Pop_window.Create_group_window;
 import Main_window.Pop_window.Friend_list_window;
@@ -12,6 +14,7 @@ import Main_window.Separate_panel.Scroll_panel;
 import Main_window.Separate_panel.Right_panel;
 import Main_window.User_Server.User;
 import Main_window.User_Server.User_friend;
+import Server.Server_handle;
 
 import javax.swing.*;
 import java.awt.*;
@@ -32,6 +35,8 @@ public class Window extends JFrame
     private Scroll_panel scroll_panel;
     public static Window current;
     private ArrayList<IComponent> after_initialize;
+    private static SimpleDateFormat formatter= new SimpleDateFormat("MM-dd HH:mm:ss");
+    private static SimpleDateFormat file_formatter = new SimpleDateFormat("MM-dd HH_mm_ss");
 
 
     public Window(String title)
@@ -43,6 +48,8 @@ public class Window extends JFrame
             after_initialize = new ArrayList<>();
             set_menubar();
             set_panel();
+
+            setIconImage(ImgUtils.getIcon("favicon.png").getImage());
 
 
             setMinimumSize(new Dimension(800, 600));
@@ -137,12 +144,12 @@ public class Window extends JFrame
             {
                 for(User_friend friend : Main.main_user.get_list_friend())//加载上次在表中的好友
                 {
-                    scroll_panel.add_card(friend);
+                    scroll_panel.add_card(friend, true);
                     friend.is_user_in_list = false;
                 }
                 for(User_group group : Main.main_user.get_all_groups())
                 {
-                    scroll_panel.add_card(group);
+                    scroll_panel.add_card(group, true);
                     group.is_group_in_list = false;
                 }
             }
@@ -163,8 +170,13 @@ public class Window extends JFrame
 
     public static String get_time()
     {
-        SimpleDateFormat formatter= new SimpleDateFormat("MM-dd HH:mm:ss");
+
         return formatter.format(new Date(System.currentTimeMillis()));
+    }
+
+    public static String get_format_time(long time)
+    {
+        return file_formatter.format(new Date(time));
     }
 
     public Right_panel getRight_panel()
@@ -233,10 +245,47 @@ public class Window extends JFrame
             @Override
             public void actionPerformed(ActionEvent actionEvent)
             {
-                Window.current.getRight_panel().debug_write_message();
+                if(actionEvent.getActionCommand().equals("add_message"))
+                    Debug_manager.current.debug_write_message();
             }
         });
+        JMenuItem debug_create_user = new JMenuItem("创建用户");
+        debug_create_user.setActionCommand("create_user");
+        debug_create_user.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent)
+            {
+                if(actionEvent.getActionCommand().equals("create_user"))
+                {
+                    String number = JOptionPane.showInputDialog(null, "输入用户量");
+                    Debug_manager.current.create_thousands_user(Integer.parseInt(number));
+                }
+            }
+        });
+        JMenuItem debug_users_send = new JMenuItem("好友发送消息");
+        debug_users_send.setActionCommand("users_send");
+        debug_users_send.addActionListener(new ActionListener()
+        {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent)
+            {
+                if(actionEvent.getActionCommand().equals("users_send"))
+                {
+                    Debug_manager.current.handle_send_hundred_message();
+                }
+            }
+        });
+
+        JMenuItem debug_release_ram = new JMenuItem("释放内存");
+        debug_release_ram.setActionCommand("release_ram");
+        debug_release_ram.addActionListener((e)->{
+            Server_handle.debug_release_channel();
+        });
         menu_debug.add(item_add_message);
+        menu_debug.add(debug_create_user);
+        menu_debug.add(debug_users_send);
+        menu_debug.add(debug_release_ram);
 
         menuBar.add(menu_setting);
         menuBar.add(menu_friend);

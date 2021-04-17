@@ -34,16 +34,18 @@ public class Base_confirm_card extends JPanel
 
     public void set_style()
     {
+        setOpaque(false);
+        setLayout(new BorderLayout());
         GridBagLayout layout = new GridBagLayout();
-        //setLayout(layout);
-        setPreferredSize(new Dimension(200, 50));
         GridBagConstraints constraints = new GridBagConstraints();
         JPanel left_panel = new JPanel();
         left_panel.setLayout(layout);
-        constraints.insets = new Insets(5, 0, 5, 0);
+        constraints.insets = new Insets(10, 0,10,5);
         left_panel.add(label_left_up ,constraints);
+        left_panel.setOpaque(false);
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.anchor = GridBagConstraints.CENTER;
         JTextField textField = new JTextField();
         textField.setOpaque(false);
         textField.setEditable(false);
@@ -54,8 +56,18 @@ public class Base_confirm_card extends JPanel
         //constraints.insets.left = 10;
         constraints.gridwidth = 0;
         left_panel.add(label_up, constraints);
+        constraints.anchor = GridBagConstraints.WEST;
         left_panel.add(label_right_down, constraints);
-        add(left_panel);
-        add(button_confirm);
+        add(left_panel, BorderLayout.CENTER);
+        JPanel right_panel = new JPanel();
+        GridBagLayout layout1 = new GridBagLayout();
+        right_panel.setLayout(layout1);
+        GridBagConstraints constraints1 = new GridBagConstraints();
+        constraints1.anchor = GridBagConstraints.CENTER;
+        constraints1.weightx = 1;
+        constraints1.weighty = 1;
+        right_panel.add(button_confirm, constraints1);
+        right_panel.setOpaque(false);
+        add(right_panel, BorderLayout.EAST);
     }
 }

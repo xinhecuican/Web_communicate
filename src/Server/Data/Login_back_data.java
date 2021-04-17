@@ -28,6 +28,7 @@ public class Login_back_data implements Serializable
         Login,
         Register,
         Login_And_Heart,
+        debug_create_back
 
     }
 }

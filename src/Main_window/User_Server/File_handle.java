@@ -1,5 +1,6 @@
 package Main_window.User_Server;
 
+import Main_window.Data.User_group;
 import Main_window.Main;
 import Server.Data.File_info;
 import io.netty.channel.ChannelFutureListener;
@@ -76,7 +77,15 @@ public class File_handle extends ChannelInboundHandlerAdapter
             info.start_pos = start;
             if(!is_server)
             {
-                Main.main_user.find_friend(info.send_to_id).communicate_data.find_file(info.time).On_len_change(start);
+                User_friend friend;
+                if((friend = Main.main_user.find_friend(info.send_to_id)) != null)
+                {
+                    friend.communicate_data.find_file(info.time).On_len_change(start);
+                }
+                else
+                {
+                    Main.main_user.find_group(info.send_to_id).data.find_file(info.time).On_len_change(start);
+                }
             }
             io.seek(start);
 
@@ -106,9 +115,20 @@ public class File_handle extends ChannelInboundHandlerAdapter
                 io.close();
                 if (!is_server)
                 {
-                    Main.main_user.find_friend(info.send_to_id).communicate_data.find_file(info.time).On_len_change(info.file_len);
+                    User_friend friend;
+                    if(!info.is_group)
+                    {
+                        friend = Main.main_user.find_friend(info.send_to_id);
+                        friend.communicate_data.find_file(info.time).On_len_change(start);
+                        friend.set_file_finished(info);
+                    }
+                    else
+                    {
+                        User_group group = Main.main_user.find_group(info.send_to_id);
+                        group.data.find_file(info.time).On_len_change(start);
+                        group.set_file_finished(info);
+                    }
                     Main.main_user.remove_finished_file(info);
-                    Main.main_user.find_friend(info.send_to_id).set_file_finished(info);
                 }
                 info.end_pos = -1;
                 channelHandlerContext.writeAndFlush(info).addListener(ChannelFutureListener.CLOSE);

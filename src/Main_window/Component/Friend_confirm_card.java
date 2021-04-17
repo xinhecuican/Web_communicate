@@ -83,6 +83,7 @@ public class Friend_confirm_card extends JPanel
                         data.data_type = Send_data.Data_type.Confirm_add_friend;
                         Main.main_user.send_message(data);
                         confirm_data.is_confirm = true;
+                        button.setEnabled(false);
                     }
                 });
                 button.setOpaque(false);

@@ -1,5 +1,6 @@
 package Main_window.Separate_panel;
 
+import Common.ImgUtils;
 import Main_window.Component.Friend_confirm_card;
 import Main_window.Component.Base_button_card;
 import Main_window.Data.Message_data;
@@ -29,6 +30,7 @@ public class Scroll_panel extends JPanel
     private JScrollPane scrollPane;
     private JPanel scroll_inner_panel;
     private ArrayList<Base_button_card> data;
+    private ArrayList<Integer> card_id;
     public static Base_button_card select_button;
     private GridBagLayout layout;
     private GridBagConstraints constraints;
@@ -47,6 +49,7 @@ public class Scroll_panel extends JPanel
         scrollPane.getViewport().setOpaque(false);
 
         data = new ArrayList<Base_button_card>();
+        card_id = new ArrayList<>();
         setAutoscrolls(true);
         scrollPane.getVerticalScrollBar().setUnitIncrement(20);
         scroll_inner_panel = new JPanel();
@@ -79,16 +82,6 @@ public class Scroll_panel extends JPanel
                 scroll_inner_panel.revalidate();
             }
         });*/
-        addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mouseReleased(MouseEvent e)
-            {
-                if (e.isMetaDown()) {
-                    showPopupMenu(e.getComponent(), e.getX(), e.getY());
-                }
-            }
-        });
     }
 
     private void showPopupMenu(Component component, int x, int y)
@@ -119,7 +112,7 @@ public class Scroll_panel extends JPanel
         add(search_panel, BorderLayout.NORTH);
     }
 
-    public boolean is_in_list(int search_id)
+    private boolean is_in_list(int search_id)
     {
         for(Base_button_card base_button_card : this.data)
         {
@@ -136,7 +129,7 @@ public class Scroll_panel extends JPanel
         return  false;
     }
 
-    public void add_card(User_friend friend)
+    public void add_card(User_friend friend, boolean need_change_button)
     {
         if(is_in_list(friend.getId()))
         {
@@ -144,13 +137,17 @@ public class Scroll_panel extends JPanel
         }
         Base_button_card button = new Base_button_card(friend, new Write_message_listener());
         this.data.add(button);
-        select_button_change(button);
-        scroll_inner_panel.add(button, constraints);
+        add_card_id(friend.getId());
+        if(need_change_button)
+        {
+            select_button_change(button);
+        }
+        scroll_inner_panel.add(button, constraints, 0);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
     }
 
-    public void add_card(User_group group)
+    public void add_card(User_group group, boolean need_change_button)
     {
         if(is_in_list(group.getGroup_id()))
         {
@@ -158,22 +155,24 @@ public class Scroll_panel extends JPanel
         }
         Base_button_card button = new Base_button_card(group, new Write_message_listener());
         this.data.add(button);
-        select_button_change(button);
-        scroll_inner_panel.add(button, constraints);
+        add_card_id(group.getGroup_id());
+        if(need_change_button)
+            select_button_change(button);
+        scroll_inner_panel.add(button, constraints, 0);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
     }
 
     public void add_component(JComponent component)
     {
-        scroll_inner_panel.add(component, constraints);
+        scroll_inner_panel.add(component, constraints, 0);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
     }
 
     public void add_card(Friend_confirm_card card)
     {
-        scroll_inner_panel.add(card, constraints);
+        scroll_inner_panel.add(card, constraints, 0);
         scroll_inner_panel.setSize(scroll_inner_panel.getWidth(), scroll_inner_panel.getHeight()+40);
         updateUI();
     }
@@ -189,24 +188,101 @@ public class Scroll_panel extends JPanel
     {
         if(new_button == select_button)
         {
+            User_friend friend;
+            if((friend = Main.main_user.find_friend(new_button.id)) != null)
+            {
+                friend.message_sum_clear();
+                new_button.message_sum_clear();
+            }
+            else
+            {
+                User_group group = Main.main_user.find_group(new_button.id);
+                group.message_sum_clear();
+                new_button.message_sum_clear();
+            }
             return;
         }
-        if(select_button == null)
+        if(select_button != null)
         {
-            last_time_background = new Color(255, 255, 255);
+            User_friend friend;
+            select_button.setIcon(null);
+            if((friend = Main.main_user.find_friend(new_button.id)) != null)
+            {
+                friend.message_sum_clear();
+                new_button.message_sum_clear();
+            }
+            else
+            {
+                User_group group = Main.main_user.find_group(new_button.id);
+                group.message_sum_clear();
+                new_button.message_sum_clear();
+            }
         }
-        else
-        {
-            select_button.setBackground(last_time_background);
-            last_time_background = new_button.getBackground();
-        }
+        new_button.setIcon(ImgUtils.getIcon("back7.jpg"));
         select_button = new_button;
-        select_button.setBackground(SELECT_COLOR);
         set_message(Scroll_panel.select_button);
     }
 
     public ArrayList<Base_button_card> getData()
     {
         return data;
+    }
+
+    private void add_card_id(int id)
+    {
+        int low = 0, high = card_id.size() - 1;
+        while(low <= high)
+        {
+            int mid = (low + high) / 2;
+            int compare_id = card_id.get(mid);
+            if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+        synchronized (this)
+        {
+            card_id.add(high + 1, id);
+        }
+    }
+
+    public boolean is_user_in_list(int id)
+    {
+        int low = 0;
+        int high = card_id.size() - 1;
+        while(low <= high)
+        {
+            int mid = (low + high) / 2;
+            int compare_id = card_id.get(mid);
+            if(compare_id == id)
+            {
+                return true;
+            }
+            else if(compare_id > id)
+            {
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
+        }
+        return false;
+    }
+
+    public void data_arrive(int id)
+    {
+        for(Base_button_card card : data)
+        {
+            if(card.id == id)
+            {
+                card.message_sum_add();
+                break;
+            }
+        }
     }
 }

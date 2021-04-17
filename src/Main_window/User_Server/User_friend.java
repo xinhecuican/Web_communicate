@@ -22,6 +22,7 @@ public class User_friend implements Serializable
     public Message_data communicate_data;
     public boolean is_user_in_list;
     public String nick;
+    private int message_sum;
 
 
     public User_friend()
@@ -51,10 +52,28 @@ public class User_friend implements Serializable
         file.file_info.file_name = file_info.file_name;
         file.file_info.total_path = file_info.total_path;
         file.file_info.file_len = file_info.file_len;
+        file.file_info.my_id = file_info.my_id;
+        file.file_info.send_to_id = file_info.send_to_id;
         if(Scroll_panel.select_button.id == this.id)
         {
             communicate_data.find_file(file.file_info.time).set_finished();
         }
+    }
+
+
+    public void message_sum_clear()
+    {
+        message_sum = 0;
+    }
+
+    public synchronized void message_sum_add()
+    {
+        message_sum++;
+    }
+
+    public int get_message_sum()
+    {
+        return message_sum;
     }
 
 

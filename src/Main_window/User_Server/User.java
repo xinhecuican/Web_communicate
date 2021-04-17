@@ -4,6 +4,7 @@ import Common.UserDecoder;
 import Common.UserEncoder;
 import Main_window.Component.File_send_panel;
 import Main_window.Data.*;
+import Main_window.Debug_helper.Debug_manager;
 import Main_window.Login_window;
 import Main_window.Main;
 import Main_window.Pop_window.Add_friend_window;
@@ -40,6 +41,9 @@ import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.Timer;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -65,13 +69,11 @@ public class User implements Serializable
 
     public User()
     {
-        friends = new ArrayList<User_friend>();
-        confirm_data = new ArrayList<Friend_confirm_data>();
+        friends = new CopyOnWriteArrayList<>();
+        confirm_data = new ArrayList<>();
         friend_list_data = new Friend_list_data();
-        groups = new ArrayList<>();
-        uploading_file = new ArrayList<>();
-        init_login_bootstrap();
-        init_message_bootstrap();
+        groups = new CopyOnWriteArrayList<>();
+        uploading_file = new CopyOnWriteArrayList<>();
 
     }
 
@@ -83,8 +85,6 @@ public class User implements Serializable
         friend_list_data = new Friend_list_data();
         groups = new ArrayList<>();
         uploading_file = new ArrayList<>();
-        init_login_bootstrap();
-        init_message_bootstrap();
     }
 
     private void init_message_bootstrap()
@@ -99,7 +99,6 @@ public class User implements Serializable
             protected void initChannel(Channel channel) throws Exception
             {
                 ChannelPipeline pipeline = channel.pipeline();
-                pipeline.addLast(new IdleStateHandler(0, 60, 0,  TimeUnit.SECONDS));
                 pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
                 pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
                 pipeline.addLast("decoder", new UserDecoder());
@@ -110,7 +109,7 @@ public class User implements Serializable
         message_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         try
         {
-            send_file_channel = message_bootstrap.connect("192.168.137.1", 10088).sync().channel();
+            send_message_channel = message_bootstrap.connect("192.168.137.1", 10088).sync().channel();
         }
         catch (InterruptedException e)
         {
@@ -150,7 +149,7 @@ public class User implements Serializable
     }
 
 
-    public void send_file(File_info file)
+    public void send_file(File_info file, boolean is_group)
     {
         Bootstrap file_bootstrap;
         file_bootstrap = new Bootstrap();
@@ -173,13 +172,10 @@ public class User implements Serializable
             }
         });
         file_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        synchronized (this)
-        {
-            uploading_file.add(file);
-        }
+        uploading_file.add(file);
         try
         {
-            add_file_message(file);
+            add_file_message(file, is_group);
             ChannelFuture future = file_bootstrap.connect("192.168.137.1", 10089).sync();
         }
         catch (InterruptedException e)
@@ -193,12 +189,13 @@ public class User implements Serializable
     {
         try
         {
-            if(message_bootstrap == null)
+            if(message_bootstrap == null || send_message_channel == null || !send_message_channel.isActive())
             {
                 init_message_bootstrap();
             }
-            message.my_id = id;
-            send_file_channel.writeAndFlush(message);
+            if(!(message.data_type == Send_data.Data_type.debug_send_message))//debug
+                message.my_id = id;
+            send_message_channel.writeAndFlush(message);
         }
         catch (Exception e)
         {
@@ -211,7 +208,7 @@ public class User implements Serializable
 
     public void send_login_message(Login_data login_data)
     {
-        if(login_bootstrap == null)
+        if(login_bootstrap == null || login_channel == null || !login_channel.isActive())
         {
             init_login_bootstrap();
         }
@@ -243,7 +240,8 @@ public class User implements Serializable
                 this.id = back_data.id;
                 break;
             case Login_And_Heart:
-                java.util.Timer timer = new Timer();
+                trigger_heart_beat();
+                /*java.util.Timer timer = new Timer();
                 TimerTask task = new TimerTask()
                 {
                     @Override
@@ -254,16 +252,24 @@ public class User implements Serializable
                         send_message(data);
                     }
                 };
-                timer.schedule(task, 0, 60 * 1000);
+                timer.schedule(task, 0, 60 * 1000);//这也是登录，所以不需要break*/
             case Login:
                 load_from_data(back_data);
+                new Window("鸽鸽通讯");
                 for(Send_data data : back_data.storage_data)//加载下线期间发来的消息
                 {
                     User_server_handle.handle_message(data);
                 }
                 Login_window.current.dispose();
-                new Window("网络聊天室");
+                init_login_bootstrap();
+                /**
+                 * TODO: 注意，下面是debug用的
+                 */
+                new Debug_manager();
                 break;
+            case debug_create_back:
+                add_friend(back_data.id, back_data.name);
+                Debug_manager.current.now_controlled_user.add(back_data.id);
         }
     }
 
@@ -344,11 +350,8 @@ public class User implements Serializable
                 low = mid + 1;
             }
         }
-        synchronized (this)
-        {
-            friend_list_data.add_friend("我的群聊", id);
-            groups.add(high+1, new User_group(id, name));
-        }
+        friend_list_data.add_friend("我的群聊", id);
+        groups.add(high+1, new User_group(id, name));
     }
 
     public void add_friend(int id, String name)
@@ -368,11 +371,8 @@ public class User implements Serializable
                 low = mid + 1;
             }
         }
-        synchronized (this)
-        {
-            friends.add(high + 1, new User_friend(id, name));
-            friend_list_data.add_friend("我的好友", id);
-        }
+        friends.add(high + 1, new User_friend(id, name));
+        friend_list_data.add_friend("我的好友", id);
         /*for(int i=0; i<friends.size(); i++)
         {
             if(friends.get(i).getId() >= id)
@@ -478,19 +478,74 @@ public class User implements Serializable
     {
         User_friend friend = find_friend(send_data.my_id);
         friend.communicate_data.add(send_data.data);
-        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == friend.getId())
-        {
-            Window.current.getRight_panel().add_piece_message(send_data.data);
-        }
+        show_user_message(friend, send_data, null);
     }
 
     public void add_group_message(Send_data data)
     {
         User_group group = find_group(data.send_to_id);
         group.data.add(data.data);
-        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == group.getGroup_id())
+        show_group_message(group, data, null);
+    }
+
+    /**
+     * 作用： 用来将卡片放到主面板上及控制消息数目变化
+     * @param group
+     * @param data
+     * @param send_panel
+     */
+    private void show_group_message(User_group group, Send_data data, File_send_panel send_panel)
+    {
+        int group_id = group.getGroup_id();
+        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == group_id)
         {
-            Window.current.getRight_panel().add_piece_message(data.data);
+            if(send_panel == null)
+                Window.current.getRight_panel().add_piece_message(data.data);
+            else
+            {
+                Window.current.getRight_panel().add_file_message(send_panel);
+            }
+        }
+        else
+        {
+            if(!Window.current.getScroll_panel().is_user_in_list(group_id))//如果没加入卡片
+            {
+                group.message_sum_add();
+                Window.current.getScroll_panel().add_card(group, false);
+            }
+            else
+            {
+                group.message_sum_add();
+                Window.current.getScroll_panel().data_arrive(group_id);
+            }
+        }
+    }
+
+    private void show_user_message(User_friend friend, Send_data send_data, File_send_panel panel)
+    {
+        int friend_id = friend.getId();
+        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == friend_id)
+        {
+            if(panel == null)
+                Window.current.getRight_panel().add_piece_message(send_data.data);
+            else
+            {
+
+                Window.current.getRight_panel().add_file_message(panel);
+            }
+        }
+        else
+        {
+            if(!Window.current.getScroll_panel().is_user_in_list(friend.getId()))//如果没加入卡片
+            {
+                friend.message_sum_add();
+                Window.current.getScroll_panel().add_card(friend, false);
+            }
+            else
+            {
+                friend.message_sum_add();
+                Window.current.getScroll_panel().data_arrive(friend.getId());
+            }
         }
     }
 
@@ -504,6 +559,7 @@ public class User implements Serializable
         file_info.time = Long.parseLong(send_data.data.message);
         file_info.file_len = Integer.parseInt(send_data.data.message_sender_name);
         file_info.file_name = send_data.searched_user;
+
         message_rightdata rightdata = new message_rightdata();
         rightdata.is_file = true;
         rightdata.time = Window.get_time();
@@ -511,23 +567,65 @@ public class User implements Serializable
         rightdata.message = String.valueOf(file_info.time);
         friend.communicate_data.add(rightdata);
         File_send_panel file_send_panel = friend.communicate_data.add(file_info);
-        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == friend.getId())
-        {
-            Window.current.getRight_panel().add_file_message(file_send_panel);
-        }
+        show_user_message(friend, send_data, file_send_panel);
     }
 
-    public void add_file_message(File_info file_info)//发送方
+    public void add_group_file(Send_data data)
     {
-        User_friend friend = find_friend(file_info.send_to_id);
-        File_send_panel send_panel = friend.communicate_data.add(file_info);
+        User_group group = find_group(data.send_to_id);
+        File file = new File(User.file_root_path + String.valueOf(id)  + "/Data/" + data.searched_user);
+        File_info file_info = new File_info(file, data.my_id);
+        file_info.my_id = data.my_id;
+        file_info.send_to_id = data.send_to_id;
+        file_info.time = Long.parseLong(data.data.message);
+        file_info.file_len = Integer.parseInt(data.data.message_sender_name);
+        file_info.file_name = data.searched_user;
+
         message_rightdata rightdata = new message_rightdata();
         rightdata.is_file = true;
         rightdata.time = Window.get_time();
         rightdata.message_sender_name = String.valueOf(file_info.send_to_id);
         rightdata.message = String.valueOf(file_info.time);
-        friend.communicate_data.add(rightdata);
-        if(Scroll_panel.select_button != null && Scroll_panel.select_button.id == friend.getId())
+        group.data.add(rightdata);
+        File_send_panel file_send_panel = group.data.add(file_info);
+        show_group_message(group, data, file_send_panel);
+    }
+
+    /**
+     * 这是用户发文件时添加消息的操作
+     * @param file_info
+     * @param is_group
+     */
+    public void add_file_message(File_info file_info, boolean is_group)//发送方
+    {
+        User_friend friend = null;
+        User_group group = null;
+        File_send_panel send_panel = null;
+        if(!is_group)
+        {
+            friend = find_friend(file_info.send_to_id);
+            send_panel = friend.communicate_data.add(file_info);
+        }
+        else
+        {
+            group = find_group(file_info.send_to_id);
+            send_panel = group.data.add(file_info);
+        }
+        message_rightdata rightdata = new message_rightdata();
+        rightdata.is_file = true;
+        rightdata.time = Window.get_time();
+        rightdata.message_sender_name = String.valueOf(file_info.send_to_id);
+        rightdata.message = String.valueOf(file_info.time);
+        if(!is_group)
+        {
+            friend.communicate_data.add(rightdata);
+        }
+        else
+        {
+            group.data.add(rightdata);
+        }
+        if(Scroll_panel.select_button != null &&
+                Scroll_panel.select_button.id == (!is_group ? friend.getId() : group.getGroup_id()))
         {
             Window.current.getRight_panel().add_file_message(send_panel);
         }
@@ -598,6 +696,47 @@ public class User implements Serializable
                 e.printStackTrace();
             }
         }
+    }
+
+    private static Channel heart_beat_file_channel;
+
+    public static void trigger_heart_beat()
+    {
+        Bootstrap file_bootstrap;
+        file_bootstrap = new Bootstrap();
+        EventLoopGroup group = new NioEventLoopGroup();
+        file_bootstrap = new Bootstrap();
+        file_bootstrap.group(group).channel(NioSocketChannel.class);
+        file_bootstrap.handler(new ChannelInitializer()
+        {
+
+            @Override
+            protected void initChannel(Channel channel) throws Exception
+            {
+                ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(
+                        Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+            }
+        });
+        file_bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        try
+        {
+           heart_beat_file_channel  = file_bootstrap.connect("192.168.137.1", 10089).sync().channel();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
+        service.scheduleAtFixedRate(()->{
+            Send_data data = new Send_data();
+            data.data_type = Send_data.Data_type.None;
+            Main.main_user.send_message(data);
+            heart_beat_file_channel.writeAndFlush(1);
+        }, 0,60,TimeUnit.SECONDS);
     }
 
     public List<Tree_data> get_friend_list_data()

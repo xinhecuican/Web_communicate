@@ -2,15 +2,10 @@ package Server;
 
 import Common.UserDecoder;
 import Common.UserEncoder;
-import Main_window.Data.Heart_beat_info;
-import Main_window.Data.Login_data;
-import Main_window.Data.Send_data;
-import Main_window.Data.message_rightdata;
+import Main_window.Data.*;
 import Main_window.User_Server.File_handle;
-import Server.Data.File_info;
-import Server.Data.Group_message;
-import Server.Data.Login_back_data;
-import Server.Data.Search_back_data;
+import Main_window.Window;
+import Server.Data.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -19,13 +14,18 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.SingleThreadEventExecutor;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author: 李子麟
@@ -34,10 +34,16 @@ import java.util.Objects;
 public class Server_handle extends ChannelInboundHandlerAdapter
 {
     private int mode;
+    public static Bootstrap send_message_bootstrap = create_send_data_bootstrap();
+    public static List<channel_time_data> temp_save_channel = new CopyOnWriteArrayList<>();
+    private static EventLoopGroup event_group;
     public Server_handle(int mode)
     {
         this.mode = mode;
+
+
     }
+
 
     public void exceptionCaught(ChannelHandlerContext ctx,
                                 Throwable cause) throws Exception {
@@ -56,6 +62,7 @@ public class Server_handle extends ChannelInboundHandlerAdapter
         if(o instanceof String)//心跳检测
         {
             String heart_beat_message = (String)o;
+            System.out.println(heart_beat_message);
             Objects.requireNonNull(Server_main.search_user(Integer.parseInt(heart_beat_message))).heart_beat_test = true;
             return;
         }
@@ -85,7 +92,7 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                             break;
                         case Offline:
                             int user_id1 = Integer.parseInt(data.name);
-                            Objects.requireNonNull(Server_main.search_user(user_id1)).is_online = false;
+                            Server_main.offline(user_id1);
                             break;
                         case Register:
                         case Login:
@@ -98,7 +105,7 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                                 back_data1.id = 1;
                                 write_back(channel, back_data1);
                             }
-                            else if(id == -2)
+                            else if(id == -2)//已经登录
                             {
                                 Login_back_data back_data1 = new Login_back_data(
                                         Login_back_data.Login_type.Error, null);
@@ -108,6 +115,7 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                             else if (id == 0)//正常登录
                             {
                                 User_message user_message = Server_main.search_user(data.id);
+                                user_message.heart_beat_test = true;
                                 Login_back_data login_back_data = new Login_back_data(
                                         Login_back_data.Login_type.Login, user_message.data);
                                 if (Server_main.heart_test_user == null || !Server_main.heart_test_user.is_online)//心跳检测
@@ -127,6 +135,14 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                                 login_back_data.id = id;
                                 write_back(channel, login_back_data);
                             }
+                            break;
+                        case debug_create_user:
+                            int debug_id = Server_main.Login(data);
+                            Login_back_data back_data1 = new Login_back_data(Login_back_data.Login_type.debug_create_back
+                            ,null);
+                            back_data1.name = String.valueOf(debug_id);
+                            back_data1.id = debug_id;
+                            write_back(channel, back_data1);
                             break;
                     }
                     break;
@@ -155,7 +171,6 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                                 User_message message = Server_main.search_user(data.my_id);
                                 assert message != null;
                                 Server_main.add_message(message.get_id(), data);
-
                             }
                             break;
                         case Search_friend:
@@ -202,11 +217,24 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                         case Request_file:
                             User_message user = Server_main.search_user(data.send_to_id);
                             long time = Long.parseLong(data.searched_user);
-                            for(File_info file : user.files)
+                            for(int i=user.files.size()-1; i>=0; i--)
                             {
-                                if(file.time == time)
+                                if(user.files.get(i).time == time)
                                 {
-                                    Server_main.add_message(data.my_id, file);
+                                    Server_main.add_message(data.my_id, user.files.get(i));
+                                    break;
+                                }
+                            }
+                            break;
+                        case Request_group_file:
+                            Group_message group = Server_main.search_group(data.send_to_id);
+                            long time_group = Long.parseLong(data.searched_user);
+                            for(File_info file : group.files)
+                            {
+                                if(file.time == time_group)
+                                {
+                                    File_info file_info = new File_info(file);
+                                    Server_main.add_message(data.my_id, file_info);
                                     break;
                                 }
                             }
@@ -226,7 +254,10 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                         case Cancel_voice_call:
                             Server_main.add_message(data.send_to_id, data);
                             break;
-
+                        case debug_send_message:
+                            Server_main.add_message(data.send_to_id, data);
+                            //data = null;
+                            break;
                     }
                     break;
                 }
@@ -240,33 +271,48 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                 {
                     File_info file = (File_info)o;
 
+
                     byte[] bytes = file.bytes;
 
-                    String file_path = Server_main.Server_root_path + String.valueOf(file.my_id)
+                    String file_path = Server_main.Server_root_path + String.valueOf((file.is_group ? file.send_to_id : file.my_id))
                             + "/" + String.format("%013d", file.time) + file.file_name;
                     if(file.end_pos == -1)//文件传输完成
                     {
+
                         file.total_path = file_path;
                         file.start_pos = 0;
                         file.end_pos = 0;
                         file.bytes = null;
-                        User_message user = Server_main.search_user(file.my_id);
-                        user.files.add(file);
-                        User_message friend = Server_main.search_user(file.send_to_id);
+
                         Send_data send_data = new Send_data();
                         send_data.my_id = file.my_id;
                         send_data.send_to_id = file.send_to_id;
                         send_data.searched_user = file.file_name;
                         send_data.data = new message_rightdata("", String.valueOf(file.time), String.valueOf(file.file_len));
                         send_data.data_type = Send_data.Data_type.File_arrive;
+
+                        User_message user;
+                        if(file.is_group)//发送群组消息
+                        {
+                            send_data.data_type = Send_data.Data_type.Group_file_arrive;
+                            Group_message group = Server_main.search_group(file.send_to_id);
+                            assert group != null;
+                            group.files.add(file);
+                            Server_main.add_group_message(file.send_to_id, send_data);
+                            break;
+                        }
+                        user = Server_main.search_user(file.my_id);
+                        user.files.add(file);
+                        User_message friend = Server_main.search_user(file.send_to_id);
                         assert friend != null;
                         Server_main.add_message(friend.get_id(), send_data);
                         break;
                     }
-                    File download_file_directory = new File(Server_main.Server_root_path + String.valueOf(file.my_id));
+                    File download_file_directory = new File(Server_main.Server_root_path +
+                            String.valueOf(file.is_group ? file.send_to_id : file.my_id));
                     if(!download_file_directory.isDirectory())
                     {
-                        download_file_directory.mkdir();
+                        download_file_directory.mkdirs();
                     }
                     /*File download_file = new File(file_path);
                     if(!download_file.exists())
@@ -283,17 +329,20 @@ public class Server_handle extends ChannelInboundHandlerAdapter
                 }
                 break;
         }
+        ReferenceCountUtil.release(o);
     }
+
+
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception
     {
-            ChannelFuture channelFuture = ctx.writeAndFlush(Unpooled.EMPTY_BUFFER);
+        ChannelFuture channelFuture = ctx.writeAndFlush(Unpooled.EMPTY_BUFFER);
     }
 
     private static void write_back(Channel channel, Object data) throws InterruptedException
     {
-        channel.writeAndFlush(data).sync().addListener(new ChannelFutureListener()
+        channel.writeAndFlush(data).addListener(new ChannelFutureListener()
         {
             @Override
             public void operationComplete(ChannelFuture channelFuture) throws Exception
@@ -312,35 +361,42 @@ public class Server_handle extends ChannelInboundHandlerAdapter
 
     public static void send_data(String host, int port, Object data)
     {
-        EventLoopGroup group = new NioEventLoopGroup();
-        Bootstrap b = new Bootstrap();
-        b.group(group).channel(NioSocketChannel.class);
-        b.handler(new ChannelInitializer<Channel>() {
-            @Override
-            protected void initChannel(Channel ch) throws Exception {
-                ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
-                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
-                pipeline.addLast("decoder", new UserDecoder());
-                pipeline.addLast("encoder", new UserEncoder());
-            }
-        });
-        b.option(ChannelOption.SO_KEEPALIVE, true);
-        Channel channel = null;
-        try
+        if(send_message_bootstrap == null)
         {
-            channel = b.connect(host, port).sync().channel();
-            ChannelFuture future = channel.writeAndFlush(data).sync();
-            future.addListener(ChannelFutureListener.CLOSE);
+            send_message_bootstrap = create_send_data_bootstrap();
+        }
+        Channel channel = null;
+        /*try
+        {
+            channel = send_message_bootstrap.connect(host, port).sync().channel();
+            ChannelFuture future = channel.writeAndFlush(data);
+            Channel finalChannel = channel;
+            future.addListener(new ChannelFutureListener()
+            {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception
+                {
+                    finalChannel.close();
+                }
+            });
         }
         catch (InterruptedException e)
         {
             e.printStackTrace();
+            channel.close();
         }
-        finally
-        {
-            group.shutdownGracefully();
-        }
+        */
+        find_channel(host, port).writeAndFlush(data);
+
+            /*ChannelFuture future = channel.writeAndFlush(data);
+            future.addListener(new ChannelFutureListener()
+            {
+                @Override
+                public void operationComplete(ChannelFuture channelFuture) throws Exception
+                {
+                    channelFuture.channel().close();
+                }
+            });*/
     }
 
     public static void send_file(String host, int port, Object data)
@@ -376,5 +432,58 @@ public class Server_handle extends ChannelInboundHandlerAdapter
         {
             group.shutdownGracefully();
         }
+    }
+
+    public static Bootstrap create_send_data_bootstrap()
+    {
+        event_group = new NioEventLoopGroup();
+        Bootstrap b = new Bootstrap();
+        b.group(event_group).channel(NioSocketChannel.class);
+        b.handler(new ChannelInitializer<Channel>() {
+            @Override
+            protected void initChannel(Channel ch) throws Exception {
+                ChannelPipeline pipeline = ch.pipeline();
+                pipeline.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
+                pipeline.addLast("frameEncoder", new LengthFieldPrepender(4));
+                pipeline.addLast("decoder", new UserDecoder());
+                pipeline.addLast("encoder", new UserEncoder());
+            }
+        });
+        b.option(ChannelOption.SO_KEEPALIVE, true);
+        return b;
+    }
+
+    private static synchronized Channel find_channel(String host, int port)
+    {
+        for (channel_time_data data : temp_save_channel)
+        {
+            if (data.host == host && data.port == port)
+            {
+                data.time_ticks = 2;
+                return data.channel;
+            }
+        }
+        Channel channel = null;
+        try
+        {
+            channel = send_message_bootstrap.connect(host, port).sync().channel();
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        temp_save_channel.add(new channel_time_data(2, channel, host, port));
+        return channel;
+    }
+
+    public static void debug_release_channel()
+    {
+        for(channel_time_data data : temp_save_channel)
+        {
+            data.channel.close();
+        }
+        temp_save_channel.clear();
+        event_group.shutdownGracefully();
+        System.gc();
     }
 }

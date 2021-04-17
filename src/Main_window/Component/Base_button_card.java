@@ -1,5 +1,6 @@
 package Main_window.Component;
 
+import Common.ImgUtils;
 import Main_window.Data.Message_data;
 import Main_window.Data.User_group;
 import Main_window.Data.message_rightdata;
@@ -18,12 +19,16 @@ import java.util.ArrayList;
  **/
 public class Base_button_card extends JButton
 {
+    private JLabel time_label;
+    private JLabel message_label;
     private String name;
     private String nearest_message;
     private String time;
     private JPanel root_panel;
+    private JLabel message_sum_label;
     public Message_data data;
     public int id;
+    private int message_sum;
     public Base_button_card()
     {
         name = "";
@@ -56,6 +61,7 @@ public class Base_button_card extends JButton
         id = friend.getId();
         name = friend.getName();
         data = friend.communicate_data;
+        message_sum = friend.get_message_sum();
         nearest_message = !data.is_empty() ? data.recently_message().message : "";
         time = !data.is_empty() ? data.recently_message().time : "";
 
@@ -95,10 +101,27 @@ public class Base_button_card extends JButton
         constraints.weightx = 0;
         constraints.gridwidth = 0;
         constraints.fill= GridBagConstraints.NONE;
-        root_panel.add(new JLabel(time), constraints);
+        time_label = new JLabel(time);
+        root_panel.add(time_label, constraints);
+        message_sum_label = new JLabel((message_sum != 0 ? String.valueOf(message_sum) : ""));
+        message_sum_label.setBorder(BorderFactory.createLineBorder(new Color(98, 193, 255), 3, true));
+        if(message_sum == 0)
+        {
+            message_sum_label.setVisible(false);
+        }
+        constraints.gridwidth = 1;
+        constraints.ipadx = 5;
+
+        constraints.weightx = 0;
+        root_panel.add(message_sum_label, constraints);
+        root_panel.add(new JLabel(""), constraints);
+        constraints.gridwidth = 0;
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
-        root_panel.add(new JLabel(nearest_message), constraints);
+        message_label = new JLabel(nearest_message);
+        root_panel.add(message_label, constraints);
+
+
         addActionListener(listener);
     }
 
@@ -114,12 +137,38 @@ public class Base_button_card extends JButton
             }
             else
             {
-                User_friend friend = Main.main_user.find_friend(Integer.parseInt(rightdataList.get(i).message_sender_name));
-                Window.current.getRight_panel().add_file_message(
-                        friend.communicate_data.create_file_panel(Long.parseLong(rightdataList.get(i).message)));
+                User_friend friend ;
+                int message_id = Integer.parseInt(rightdataList.get(i).message_sender_name);
+                if((friend = Main.main_user.find_friend(message_id)) != null)
+                {
+                    Window.current.getRight_panel().add_file_message(
+                            friend.communicate_data.create_file_panel(Long.parseLong(rightdataList.get(i).message)));
+                }
+                else
+                {
+                    User_group group = Main.main_user.find_group(message_id);
+                    Window.current.getRight_panel().add_file_message(
+                            group.data.create_file_panel(Long.parseLong(rightdataList.get(i).message)));
+                }
             }
         }
+    }
 
+    public void message_sum_add()
+    {
+        message_sum++;
+        message_sum_label.setText(String.valueOf(message_sum));
+
+        message_label.setText(data.recently_message().message);
+        time_label.setText(data.recently_message().time);
+        message_sum_label.setVisible(true);
+    }
+
+    public void message_sum_clear()
+    {
+        message_sum = 0;
+        message_sum_label.setText("");
+        message_sum_label.setVisible(false);
     }
 
 

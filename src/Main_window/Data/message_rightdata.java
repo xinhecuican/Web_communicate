@@ -6,7 +6,7 @@ import javax.swing.text.StyledDocument;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
+/**单个要发送的信息
  * @author: 李子麟
  * @date: 2021/3/15 20:56
  **/

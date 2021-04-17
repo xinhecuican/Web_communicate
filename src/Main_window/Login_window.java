@@ -1,5 +1,6 @@
 package Main_window;
 
+import Common.ImgUtils;
 import Main_window.Data.Login_data;
 import Main_window.Pop_window.Register_window;
 import Main_window.User_Server.User;
@@ -32,6 +33,7 @@ public class Login_window extends JFrame
         root_layout = new GridBagLayout();
         root_panel.setLayout(root_layout);
         add(root_panel);
+        setIconImage(ImgUtils.getIcon("favicon.png").getImage());
 
         JLabel label_user = new JLabel("账号");
         JLabel label_password = new JLabel("密码");

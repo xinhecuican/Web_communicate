@@ -1,4 +1,4 @@
-package Main_window.Component;
+package Main_window.UI;
 
 import Common.ImgUtils;
 

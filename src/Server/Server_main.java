@@ -7,6 +7,8 @@ import Main_window.Tools;
 import Server.Data.All_users;
 import Server.Data.File_info;
 import Server.Data.Group_message;
+import Server.Data.Login_back_data;
+import io.netty.util.ResourceLeakDetector;
 
 import java.io.*;
 import java.net.Socket;
@@ -40,6 +42,12 @@ public class Server_main
         if(data.type == Login_data.Login_type.Register)
         {
             int id = register_new_user(data);
+            return id;
+        }
+        else if(data.type == Login_data.Login_type.debug_create_user)
+        {
+            int id = register_new_user(data);
+            add_friend(data.id, id);
             return id;
         }
         User_message user;
@@ -300,12 +308,37 @@ public class Server_main
         {
             if(!user_message.heart_beat_test)
             {
-                user_message.is_online = false;
+                Server_main.offline(user_message.get_id());
             }
             else
             {
                 user_message.heart_beat_test = false;
                 user_message.is_online = true;
+            }
+        }
+    }
+
+    public static void offline(int id)
+    {
+        User_message user = search_user(id);
+        user.is_online = false;
+        user.heart_beat_test = false;
+        if(heart_test_user.get_id() == id)
+        {
+            send_heart_test_message();
+        }
+    }
+
+    private static void send_heart_test_message()
+    {
+        for(User_message message : all_users.all_users)
+        {
+            if(message.is_online)
+            {
+                Send_data data = new Send_data();
+                data.data_type = Send_data.Data_type.Heart_beat_test;
+                Server_handle.send_data(message.host, message.port, data);
+                break;
             }
         }
     }
@@ -336,7 +369,7 @@ public class Server_main
                 message.is_online = false;
             }
             File file2 = new File("Server Data");
-            file2.mkdir();
+            file2.mkdirs();
 
             File data_file = new File(Server_root_path + "Server Data");
             FileOutputStream fileOutputStream = null;
@@ -356,5 +389,8 @@ public class Server_main
             Server server = new Server(i);
             server.start();
         }
+        System.setProperty("io.netty.leakDetection.maxRecords", "100");
+        System.setProperty("io.netty.leakDetection.acquireAndReleaseOnly", "true");
+        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
     }
 }

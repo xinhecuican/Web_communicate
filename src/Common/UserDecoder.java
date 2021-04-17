@@ -14,8 +14,7 @@ public class UserDecoder extends ByteToMessageDecoder
 {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
-        ByteBufToBytes read = new ByteBufToBytes();
-        Object obj = ByteObjConverter.byteToObject(read.read(in));
+        Object obj = ByteObjConverter.byteToObject(ByteBufToBytes.read(in));
         out.add(obj);
     }
 
